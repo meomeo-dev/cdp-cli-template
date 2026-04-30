@@ -1,0 +1,22 @@
+id: site-adapter-template
+version: 1
+status: template
+scope:
+  - generic CDP runtime
+  - site adapter boundary
+  - CLI and JSON-RPC parity
+invariants:
+  - id: browser-runtime-ownership
+    statement: --cdp-url attaches to an existing browser and must not close the browser process.
+  - id: managed-browser-ownership
+    statement: without --cdp-url the CLI owns the launched browser lifecycle and closes it after the action.
+  - id: selector-contract
+    statement: ready/search/result selectors are adapter contracts and must be documented before relying on them in e2e tests.
+  - id: interface-parity
+    statement: every browser action exposed in CLI must be reachable through JSON-RPC or explicitly documented as CLI-only.
+unsupported_by_default:
+  - authentication bootstrapping
+  - captcha solving
+  - file upload
+  - streaming response capture
+  - website-specific anti-bot bypass

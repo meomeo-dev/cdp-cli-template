@@ -1,0 +1,13 @@
+dist
+node_modules
+.DS_Store
+.env
+.playwright
+playwright-report
+test-results
+coverage
+tmp
+artifacts
+*.log
+*.tgz
+*.zip
