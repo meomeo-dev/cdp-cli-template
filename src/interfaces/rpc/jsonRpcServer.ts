@@ -2,10 +2,13 @@ import { createInterface } from 'node:readline/promises'
 import { stdin, stdout } from 'node:process'
 import { z } from 'zod'
 import { describeSystem } from '../../application/usecases/describeSystem.js'
+import { inspectNetwork } from '../../application/usecases/inspectNetwork.js'
+import { listEndpoints } from '../../application/usecases/listEndpoints.js'
+import type { EndpointCatalog } from '../../infrastructure/network/endpointCatalog.js'
 import { inspectHome } from '../../application/usecases/inspectHome.js'
 import { searchSite } from '../../application/usecases/searchSite.js'
 import type { BrowserRuntimeOptions } from '../../infrastructure/browser/browserRuntime.js'
-import type { SiteAdapter } from '../../infrastructure/site/siteAdapter.js'
+import type { SiteRegistry } from '../../infrastructure/site/siteRegistry.js'
 import { RuntimeFailure, serializeError } from '../../shared/errors/runtimeFailure.js'
 
 const requestSchema = z.object({
@@ -15,8 +18,13 @@ const requestSchema = z.object({
   params: z.unknown().optional(),
 })
 
+const inspectParamsSchema = z.object({
+  siteId: z.string().min(1).optional(),
+})
+
 const searchParamsSchema = z.object({
   query: z.string().min(1),
+  siteId: z.string().min(1).optional(),
 })
 
 type RequestId = string | number | null
@@ -24,7 +32,8 @@ type RequestId = string | number | null
 export type JsonRpcServerOptions = {
   packageName: string
   packageVersion: string
-  adapter: SiteAdapter
+  registry: SiteRegistry
+  endpointCatalog: EndpointCatalog
   browserOptions: BrowserRuntimeOptions
 }
 
@@ -67,12 +76,36 @@ async function dispatch(
 ): Promise<unknown> {
   switch (method) {
     case 'system.describe':
-      return describeSystem(options.packageName, options.packageVersion, options.adapter.config)
-    case 'site.inspectHome':
-      return inspectHome(options.adapter, options.browserOptions)
+      return describeSystem(options.packageName, options.packageVersion, options.registry.config)
+    case 'site.list':
+      return {
+        defaultSiteId: options.registry.config.defaultSiteId,
+        sites: options.registry.config.sites,
+        authProfiles: options.registry.config.authProfiles,
+      }
+    case 'workflow.list':
+      return { workflows: options.registry.config.workflows }
+    case 'endpoint.list':
+      return listEndpoints(options.endpointCatalog)
+    case 'site.inspectHome': {
+      const parsedParams = inspectParamsSchema.parse(params ?? {})
+      return inspectHome(options.registry.createAdapter(parsedParams.siteId), options.browserOptions)
+    }
+    case 'site.inspectNetwork': {
+      const parsedParams = inspectParamsSchema.parse(params ?? {})
+      return inspectNetwork(
+        options.registry.createAdapter(parsedParams.siteId),
+        options.browserOptions,
+        options.endpointCatalog,
+      )
+    }
     case 'site.search': {
       const parsedParams = searchParamsSchema.parse(params)
-      return searchSite(options.adapter, options.browserOptions, parsedParams.query)
+      return searchSite(
+        options.registry.createAdapter(parsedParams.siteId),
+        options.browserOptions,
+        parsedParams.query,
+      )
     }
     default:
       throw new RuntimeFailure('RPC_METHOD_NOT_FOUND', `Unknown RPC method: ${method}`, { method })

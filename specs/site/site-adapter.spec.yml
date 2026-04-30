@@ -3,7 +3,10 @@ version: 1
 status: template
 scope:
   - generic CDP runtime
-  - site adapter boundary
+  - multi-site registry and site adapter boundary
+  - optional and required login metadata
+  - endpoint catalog and sanitized network observation
+  - semantic element recognition and simulated browser actions
   - CLI and JSON-RPC parity
 invariants:
   - id: browser-runtime-ownership
@@ -12,11 +15,28 @@ invariants:
     statement: without --cdp-url the CLI owns the launched browser lifecycle and closes it after the action.
   - id: selector-contract
     statement: ready/search/result selectors are adapter contracts and must be documented before relying on them in e2e tests.
+  - id: auth-is-site-scoped
+    statement: login requirements belong to each site config via auth.mode and auth.profileId, never to global CLI state.
+  - id: multi-site-workflow
+    statement: workflows may combine multiple sites, such as public search discovery followed by logged-in original-site reading.
+  - id: semantic-control-contract
+    statement: drift-prone page controls should be represented as semantic element candidates with labels, roles, visibility, disabled state, and selectors before actions click or type into them.
+  - id: simulated-action-guardrail
+    statement: simulated actions should resolve an enabled visible candidate first and surface typed failure evidence instead of blindly clicking raw selectors.
+  - id: endpoint-catalog-contract
+    statement: authoritative browser APIs should be modeled as endpoint catalog records with evidence status before parser or adapter code depends on them.
+  - id: sanitized-network-observation
+    statement: generic endpoint observation records URL/method/status metadata only and must not capture bodies, cookies, or authorization headers.
   - id: interface-parity
     statement: every browser action exposed in CLI must be reachable through JSON-RPC or explicitly documented as CLI-only.
 unsupported_by_default:
-  - authentication bootstrapping
+  - credential entry automation
   - captcha solving
   - file upload
+  - response body capture
+  - request body capture
   - streaming response capture
   - website-specific anti-bot bypass
+notes:
+  - Auth profiles are browser profile metadata; users should log in manually or via project-specific setup before required-login actions run.
+  - Public and authenticated sites can coexist in one registry and one workflow.

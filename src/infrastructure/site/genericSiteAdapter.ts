@@ -1,5 +1,6 @@
 import type { Page } from 'puppeteer-core'
 import { RuntimeFailure } from '../../shared/errors/runtimeFailure.js'
+import { pressKey, typeIntoElement } from '../ui/elementActions.js'
 import type { InspectHomeResult, SearchResult, SearchResultItem, SiteAdapter, SiteConfig } from './siteAdapter.js'
 
 export class GenericSiteAdapter implements SiteAdapter {
@@ -32,10 +33,15 @@ export class GenericSiteAdapter implements SiteAdapter {
 
     await page.goto(this.config.baseUrl, { waitUntil: 'domcontentloaded' })
     await page.waitForSelector(this.config.selectors.ready, { visible: true })
-    await page.waitForSelector(this.config.selectors.searchInput, { visible: true })
-    await page.click(this.config.selectors.searchInput, { clickCount: 3 })
-    await page.keyboard.type(query)
-    await page.keyboard.press('Enter')
+    await typeIntoElement(
+      page,
+      {
+        selectors: [this.config.selectors.searchInput],
+        kinds: ['input', 'textbox'],
+      },
+      query,
+    )
+    await pressKey(page, 'Enter')
     const networkIdle = await waitForNetworkIdle(page)
 
     const items = await collectResultItems(page, this.config.selectors.resultItems)

@@ -1,19 +1,32 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { handleJsonRpcLine } from '../../src/interfaces/rpc/jsonRpcServer.js'
-import { createSiteAdapter } from '../../src/infrastructure/site/siteRegistry.js'
+import { createSiteRegistry } from '../../src/infrastructure/site/siteRegistry.js'
+import type { JsonRpcServerOptions } from '../../src/interfaces/rpc/jsonRpcServer.js'
 
-const options = {
+const options: JsonRpcServerOptions = {
   packageName: 'cdp-cli-template',
   packageVersion: '0.1.0',
-  adapter: createSiteAdapter(),
+  registry: createSiteRegistry(),
+  endpointCatalog: {
+    records: [
+      {
+        id: 'example-api',
+        method: 'GET',
+        urlPattern: 'https://example.com/api/*',
+        category: 'api',
+        evidenceStatus: 'observed',
+        description: 'Example endpoint catalog record.',
+      },
+    ],
+  },
   browserOptions: {
     headless: true,
     timeoutMs: 1_000,
   },
 }
 
-test('system.describe returns JSON-RPC result', async () => {
+test('system.describe returns JSON-RPC result with registry details', async () => {
   const response = await handleJsonRpcLine(
     options,
     JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'system.describe' }),
@@ -23,6 +36,53 @@ test('system.describe returns JSON-RPC result', async () => {
   assert.equal(readProperty(response, 'id'), 1)
   assert.equal(readProperty(response, 'result.name'), 'cdp-cli-template')
   assert.equal(readProperty(response, 'result.site.id'), 'example')
+  assert.equal(readProperty(response, 'result.registry.defaultSiteId'), 'example')
+})
+
+test('site.list returns auth-aware site registry', async () => {
+  const response = await handleJsonRpcLine(
+    options,
+    JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'site.list' }),
+  )
+
+  assert.equal(readProperty(response, 'result.defaultSiteId'), 'example')
+  assert.equal(readProperty(response, 'result.sites.0.auth.mode'), 'none')
+})
+
+test('workflow.list returns configured workflow plans', async () => {
+  const response = await handleJsonRpcLine(
+    options,
+    JSON.stringify({ jsonrpc: '2.0', id: 3, method: 'workflow.list' }),
+  )
+
+  assert.equal(readProperty(response, 'result.workflows.0.id'), 'single-site-inspect')
+})
+
+
+test('endpoint.list returns known endpoint catalog records', async () => {
+  const response = await handleJsonRpcLine(
+    options,
+    JSON.stringify({ jsonrpc: '2.0', id: 4, method: 'endpoint.list' }),
+  )
+
+  assert.equal(readProperty(response, 'result.endpoints.0.id'), 'example-api')
+  assert.equal(readProperty(response, 'result.endpoints.0.evidenceStatus'), 'observed')
+})
+
+test('system.describe advertises endpoint observation surfaces', async () => {
+  const response = await handleJsonRpcLine(
+    options,
+    JSON.stringify({ jsonrpc: '2.0', id: 5, method: 'system.describe' }),
+  )
+
+  assert.equal(
+    (readProperty(response, 'result.commands') as string[]).includes('inspect-network'),
+    true,
+  )
+  assert.equal(
+    (readProperty(response, 'result.rpcMethods') as string[]).includes('site.inspectNetwork'),
+    true,
+  )
 })
 
 test('unknown method preserves request id in JSON-RPC error', async () => {
@@ -48,7 +108,17 @@ test('parse errors use null request id', async () => {
 function readProperty(value: unknown, path: string): unknown {
   let current = value
   for (const part of path.split('.')) {
-    if (current === null || typeof current !== 'object' || !(part in current)) {
+    if (current === null || typeof current !== 'object') {
+      return undefined
+    }
+
+    if (Array.isArray(current)) {
+      const index = Number(part)
+      current = Number.isInteger(index) ? current[index] : undefined
+      continue
+    }
+
+    if (!(part in current)) {
       return undefined
     }
     current = (current as Record<string, unknown>)[part]

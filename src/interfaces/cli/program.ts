@@ -3,9 +3,12 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { Command } from 'commander'
 import { describeSystem } from '../../application/usecases/describeSystem.js'
+import { inspectNetwork } from '../../application/usecases/inspectNetwork.js'
+import { listEndpoints } from '../../application/usecases/listEndpoints.js'
+import { defaultEndpointCatalog } from '../../infrastructure/network/endpointCatalog.js'
 import { inspectHome } from '../../application/usecases/inspectHome.js'
 import { searchSite } from '../../application/usecases/searchSite.js'
-import { createSiteAdapter, loadSiteConfigFromEnv } from '../../infrastructure/site/siteRegistry.js'
+import { loadSiteRegistryFromEnv } from '../../infrastructure/site/siteRegistry.js'
 import { serializeError } from '../../shared/errors/runtimeFailure.js'
 import { findNearestPackageRoot } from '../../shared/runtime/projectRoot.js'
 import { parseBrowserOptions, parseOutputFormat, type CommonCliOptions } from './options.js'
@@ -19,12 +22,12 @@ export type PackageMetadata = {
 
 export function createProgram(metadata: PackageMetadata): Command {
   const program = new Command()
-  const siteConfig = loadSiteConfigFromEnv()
-  const adapter = createSiteAdapter(siteConfig)
+  const registry = loadSiteRegistryFromEnv()
+  const endpointCatalog = defaultEndpointCatalog
 
   program
     .name('site-cdp')
-    .description('Template CLI for automating a website through Chrome DevTools Protocol.')
+    .description('Template CLI for automating one or more websites through Chrome DevTools Protocol.')
     .version(metadata.version)
     .enablePositionalOptions()
     .showHelpAfterError()
@@ -33,27 +36,75 @@ export function createProgram(metadata: PackageMetadata): Command {
 
   program
     .command('describe')
-    .description('Describe the configured site, CLI commands, and RPC methods.')
+    .description('Describe configured sites, auth profiles, workflows, CLI commands, and RPC methods.')
     .option('--format <format>', 'Output format: json or text', 'json')
     .action(async options => {
-      await runCliAction(options, async () => describeSystem(metadata.name, metadata.version, adapter.config))
+      await runCliAction(options, async () => describeSystem(metadata.name, metadata.version, registry.config))
+    })
+
+  program
+    .command('sites')
+    .description('List configured sites and their auth requirements.')
+    .option('--format <format>', 'Output format: json or text', 'json')
+    .action(async options => {
+      await runCliAction(options, async () => ({
+        defaultSiteId: registry.config.defaultSiteId,
+        sites: registry.config.sites,
+        authProfiles: registry.config.authProfiles,
+      }))
+    })
+
+  program
+    .command('workflows')
+    .description('List configured cross-site workflow plans.')
+    .option('--format <format>', 'Output format: json or text', 'json')
+    .action(async options => {
+      await runCliAction(options, async () => ({ workflows: registry.config.workflows }))
+    })
+
+  program
+    .command('endpoints')
+    .description('List known API endpoints and their evidence status.')
+    .option('--format <format>', 'Output format: json or text', 'json')
+    .action(async options => {
+      await runCliAction(options, async () => listEndpoints(endpointCatalog))
     })
 
   program
     .command('inspect-home')
-    .description('Open the target site and verify its ready selector.')
+    .description('Open a target site and verify its ready selector.')
+    .option('--site <siteId>', 'Site id to inspect; defaults to the registry default site')
     .option('--format <format>', 'Output format: json or text', 'json')
     .action(async options => {
-      await runCliAction(options, async () => inspectHome(adapter, parseBrowserOptions(program.optsWithGlobals())))
+      await runCliAction(options, async () => {
+        const adapter = registry.createAdapter(options.site)
+        return inspectHome(adapter, parseBrowserOptions(program.optsWithGlobals()))
+      })
+    })
+
+  program
+    .command('inspect-network')
+    .description('Open a target site and record sanitized network endpoint observations.')
+    .option('--site <siteId>', 'Site id to inspect; defaults to the registry default site')
+    .option('--format <format>', 'Output format: json or text', 'json')
+    .action(async options => {
+      await runCliAction(options, async () => {
+        const adapter = registry.createAdapter(options.site)
+        return inspectNetwork(adapter, parseBrowserOptions(program.optsWithGlobals()), endpointCatalog)
+      })
     })
 
   program
     .command('search')
-    .description('Run the generic search action for adapters that define SITE_SEARCH_INPUT_SELECTOR.')
+    .description('Run the generic search action for adapters that define a search input selector.')
     .argument('<query>', 'Search query')
+    .option('--site <siteId>', 'Site id to search; defaults to the registry default site')
     .option('--format <format>', 'Output format: json or text', 'json')
     .action(async (query: string, options) => {
-      await runCliAction(options, async () => searchSite(adapter, parseBrowserOptions(program.optsWithGlobals()), query))
+      await runCliAction(options, async () => {
+        const adapter = registry.createAdapter(options.site)
+        return searchSite(adapter, parseBrowserOptions(program.optsWithGlobals()), query)
+      })
     })
 
   program
@@ -63,7 +114,8 @@ export function createProgram(metadata: PackageMetadata): Command {
       await runJsonRpcServer({
         packageName: metadata.name,
         packageVersion: metadata.version,
-        adapter,
+        registry,
+        endpointCatalog,
         browserOptions: parseBrowserOptions(program.optsWithGlobals()),
       })
     })
