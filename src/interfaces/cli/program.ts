@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { Command } from 'commander'
@@ -7,6 +7,7 @@ import { inspectHome } from '../../application/usecases/inspectHome.js'
 import { searchSite } from '../../application/usecases/searchSite.js'
 import { createSiteAdapter, loadSiteConfigFromEnv } from '../../infrastructure/site/siteRegistry.js'
 import { serializeError } from '../../shared/errors/runtimeFailure.js'
+import { findNearestPackageRoot } from '../../shared/runtime/projectRoot.js'
 import { parseBrowserOptions, parseOutputFormat, type CommonCliOptions } from './options.js'
 import { printError, printResult } from './output.js'
 import { runJsonRpcServer } from '../rpc/jsonRpcServer.js'
@@ -25,6 +26,8 @@ export function createProgram(metadata: PackageMetadata): Command {
     .name('site-cdp')
     .description('Template CLI for automating a website through Chrome DevTools Protocol.')
     .version(metadata.version)
+    .enablePositionalOptions()
+    .showHelpAfterError()
 
   addCommonOptions(program)
 
@@ -91,27 +94,11 @@ async function runCliAction(options: CommonCliOptions, action: () => Promise<unk
 
 export function readPackageMetadata(): PackageMetadata {
   const currentFile = fileURLToPath(import.meta.url)
-  const packageJsonPath = findPackageJson(dirname(currentFile))
+  const packageRoot = findNearestPackageRoot(dirname(currentFile))
+  const packageJsonPath = resolve(packageRoot, 'package.json')
   const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as Partial<PackageMetadata>
   return {
     name: packageJson.name ?? 'cdp-cli-template',
     version: packageJson.version ?? '0.0.0',
   }
-}
-
-function findPackageJson(startDir: string): string {
-  let currentDir = startDir
-  for (let depth = 0; depth < 8; depth += 1) {
-    const candidate = resolve(currentDir, 'package.json')
-    if (existsSync(candidate)) {
-      return candidate
-    }
-    const parentDir = dirname(currentDir)
-    if (parentDir === currentDir) {
-      break
-    }
-    currentDir = parentDir
-  }
-
-  return resolve(process.cwd(), 'package.json')
 }

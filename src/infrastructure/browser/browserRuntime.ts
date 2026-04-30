@@ -3,6 +3,8 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import puppeteer, { type Browser, type Page } from 'puppeteer-core'
 import { RuntimeFailure } from '../../shared/errors/runtimeFailure.js'
+import { resolveChromeExecutablePath } from '../../shared/runtime/chromeExecutable.js'
+import { findNearestPackageRoot } from '../../shared/runtime/projectRoot.js'
 
 export type BrowserRuntimeOptions = {
   cdpUrl?: string | undefined
@@ -50,20 +52,20 @@ async function connectToExistingBrowser(cdpUrl: string, timeoutMs: number): Prom
     })
   }
 
-  const page = await acquirePage(browser)
+  const page = await browser.newPage()
   return {
     browser,
     page,
     mode: 'attached',
     close: async () => {
-      await page.close().catch(() => undefined)
-      await browser.disconnect()
+      await closePageQuietly(page)
+      browser.disconnect()
     },
   }
 }
 
 async function launchBrowser(options: BrowserRuntimeOptions): Promise<BrowserLease> {
-  const executablePath = options.executablePath ?? process.env.CHROME_PATH
+  const executablePath = resolveChromeExecutablePath(options.executablePath)
   const userDataDir = options.userDataDir ?? defaultUserDataDir()
   await mkdir(userDataDir, { recursive: true })
 
@@ -78,7 +80,7 @@ async function launchBrowser(options: BrowserRuntimeOptions): Promise<BrowserLea
     })
   } catch (error) {
     throw new RuntimeFailure('BROWSER_CONNECT_FAILED', 'Failed to launch browser', {
-      executablePath: executablePath ?? '<puppeteer-default>',
+      executablePath: executablePath ?? '<not-found: set --chrome-path or CHROME_PATH>',
       userDataDir,
       cause: error instanceof Error ? error.message : String(error),
     })
@@ -90,7 +92,7 @@ async function launchBrowser(options: BrowserRuntimeOptions): Promise<BrowserLea
     page,
     mode: 'launched',
     close: async () => {
-      await browser.close().catch(() => undefined)
+      await browser.close()
     },
   }
 }
@@ -103,8 +105,18 @@ async function acquirePage(browser: Browser): Promise<Page> {
   return page
 }
 
+async function closePageQuietly(page: Page): Promise<void> {
+  try {
+    if (!page.isClosed()) {
+      await page.close()
+    }
+  } catch {
+    // Attached browsers are owned by the caller; page cleanup is best effort only.
+  }
+}
+
 function defaultUserDataDir(): string {
   const currentFile = fileURLToPath(import.meta.url)
-  const projectRoot = resolve(dirname(currentFile), '../../../..')
-  return resolve(projectRoot, '.site-cdp/browser-profile')
+  const packageRoot = findNearestPackageRoot(dirname(currentFile))
+  return resolve(packageRoot, '.site-cdp/browser-profile')
 }

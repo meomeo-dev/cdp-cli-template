@@ -8,8 +8,8 @@ Use this template when building a CLI that controls a website through Chrome Dev
 
 ## Workflow
 
-1. Rename package metadata and binary names in `package.json`.
-2. Define target site identity and base selectors in `src/infrastructure/site/siteRegistry.ts`.
+1. Run `node scripts/init-site.mjs <package-name> <bin-name> <site-name> <site-url>`, then review its changes.
+2. Define or refine target site identity and base selectors in `src/infrastructure/site/siteRegistry.ts`.
 3. Keep generic runtime code in `src/infrastructure/browser` unchanged unless browser ownership semantics change.
 4. Implement site-specific actions behind a `SiteAdapter`.
 5. Expose each action through CLI and JSON-RPC only after the usecase is typed and tested.
@@ -22,6 +22,7 @@ Use this template when building a CLI that controls a website through Chrome Dev
 - Do not let RPC bypass the application usecase layer.
 - Do not silently click optional toggles; normalize desired state first and report ignored/unavailable controls.
 - Do not publish from the source tree without installing the generated tarball in a fresh temp project.
+- Do not assume generated tests remain valid after `init-site`; review e2e selectors for the new target.
 - Prefer small typed adapters over one large browser script.
 
 ## Useful Commands

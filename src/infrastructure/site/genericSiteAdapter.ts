@@ -36,7 +36,7 @@ export class GenericSiteAdapter implements SiteAdapter {
     await page.click(this.config.selectors.searchInput, { clickCount: 3 })
     await page.keyboard.type(query)
     await page.keyboard.press('Enter')
-    await page.waitForNetworkIdle({ idleTime: 500, timeout: 15_000 }).catch(() => undefined)
+    const networkIdle = await waitForNetworkIdle(page)
 
     const items = await collectResultItems(page, this.config.selectors.resultItems)
     return {
@@ -45,7 +45,19 @@ export class GenericSiteAdapter implements SiteAdapter {
       url: page.url(),
       title: await page.title(),
       items,
+      diagnostics: {
+        networkIdle,
+      },
     }
+  }
+}
+
+async function waitForNetworkIdle(page: Page): Promise<SearchResult['diagnostics']['networkIdle']> {
+  try {
+    await page.waitForNetworkIdle({ idleTime: 500, timeout: 15_000 })
+    return 'observed'
+  } catch {
+    return 'timeout'
   }
 }
 

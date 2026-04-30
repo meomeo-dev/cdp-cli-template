@@ -1,7 +1,7 @@
-import { test, expect } from '@playwright/test'
+import { expect, test } from '@playwright/test'
+import { defaultSiteConfig } from '../../src/infrastructure/site/siteRegistry.js'
 
-test('example.com has a document title', async ({ page }) => {
-  await page.goto('https://example.com/', { waitUntil: 'domcontentloaded' })
-  await expect(page.locator('body')).toBeVisible()
-  await expect(page).toHaveTitle(/Example Domain/)
+test('configured site exposes its ready selector', async ({ page }) => {
+  await page.goto(defaultSiteConfig.baseUrl, { waitUntil: 'domcontentloaded' })
+  await expect(page.locator(defaultSiteConfig.selectors.ready).first()).toBeVisible()
 })

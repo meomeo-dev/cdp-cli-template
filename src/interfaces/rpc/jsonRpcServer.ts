@@ -19,6 +19,8 @@ const searchParamsSchema = z.object({
   query: z.string().min(1),
 })
 
+type RequestId = string | number | null
+
 export type JsonRpcServerOptions = {
   packageName: string
   packageVersion: string
@@ -40,6 +42,7 @@ export async function runJsonRpcServer(options: JsonRpcServerOptions): Promise<v
 }
 
 export async function handleJsonRpcLine(options: JsonRpcServerOptions, line: string): Promise<unknown> {
+  const requestId = readRequestId(line)
   try {
     const parsed = requestSchema.parse(JSON.parse(line))
     const result = await dispatch(options, parsed.method, parsed.params)
@@ -51,7 +54,7 @@ export async function handleJsonRpcLine(options: JsonRpcServerOptions, line: str
   } catch (error) {
     return {
       jsonrpc: '2.0',
-      id: null,
+      id: requestId,
       error: serializeRpcError(error),
     }
   }
@@ -74,6 +77,19 @@ async function dispatch(
     default:
       throw new RuntimeFailure('RPC_METHOD_NOT_FOUND', `Unknown RPC method: ${method}`, { method })
   }
+}
+
+function readRequestId(line: string): RequestId {
+  try {
+    const parsed = JSON.parse(line) as Record<string, unknown>
+    if (typeof parsed.id === 'string' || typeof parsed.id === 'number' || parsed.id === null) {
+      return parsed.id
+    }
+  } catch {
+    return null
+  }
+
+  return null
 }
 
 function serializeRpcError(error: unknown): { code: number; message: string; data: Record<string, unknown> } {

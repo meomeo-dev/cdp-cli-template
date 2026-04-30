@@ -34,6 +34,9 @@ export type SearchResult = {
   url: string
   title: string
   items: SearchResultItem[]
+  diagnostics: {
+    networkIdle: 'observed' | 'timeout'
+  }
 }
 
 export interface SiteAdapter {

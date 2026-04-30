@@ -25,15 +25,24 @@ test('system.describe returns JSON-RPC result', async () => {
   assert.equal(readProperty(response, 'result.site.id'), 'example')
 })
 
-test('unknown method returns method-not-found error', async () => {
+test('unknown method preserves request id in JSON-RPC error', async () => {
   const response = await handleJsonRpcLine(
     options,
     JSON.stringify({ jsonrpc: '2.0', id: 'x', method: 'missing.method' }),
   )
 
   assert.equal(readProperty(response, 'jsonrpc'), '2.0')
+  assert.equal(readProperty(response, 'id'), 'x')
   assert.equal(readProperty(response, 'error.code'), -32601)
   assert.equal(readProperty(response, 'error.data.code'), 'RPC_METHOD_NOT_FOUND')
+})
+
+test('parse errors use null request id', async () => {
+  const response = await handleJsonRpcLine(options, '{not-json')
+
+  assert.equal(readProperty(response, 'jsonrpc'), '2.0')
+  assert.equal(readProperty(response, 'id'), null)
+  assert.equal(readProperty(response, 'error.code'), -32000)
 })
 
 function readProperty(value: unknown, path: string): unknown {

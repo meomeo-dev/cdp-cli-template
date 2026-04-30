@@ -20,8 +20,7 @@ The template captures lessons from `deepseek-cdp-cli` while avoiding DeepSeek-sp
 ```sh
 cd ~/projects/cdp-cli-template
 npm install
-npm run quality:check
-npm run build
+npm run release:preflight
 node dist/src/cli.js describe
 ```
 
@@ -43,12 +42,13 @@ npm run dev -- --cdp-url http://127.0.0.1:9222 inspect-home
 
 ## Turning This Into A Site CLI
 
-1. Rename package/bin in `package.json`.
-2. Replace `defaultSiteConfig` in `src/infrastructure/site/siteRegistry.ts`.
-3. Add a dedicated adapter if the site needs login, shadow DOM handling, upload, streaming, anti-bot settle checks, or custom actions.
-4. Keep site selectors and request boundaries in `specs/site/*.spec.yml`.
-5. Add fast unit tests before live e2e tests.
-6. Only publish after a tarball install smoke test in a temp directory.
+1. Run `node scripts/init-site.mjs <package-name> <bin-name> <site-name> <site-url>` for the first rename pass.
+2. Review `package.json`, `package-lock.json`, README examples, and tests after the script runs.
+3. Replace or refine `defaultSiteConfig` in `src/infrastructure/site/siteRegistry.ts`.
+4. Add a dedicated adapter if the site needs login, shadow DOM handling, upload, streaming, anti-bot settle checks, or custom actions.
+5. Keep site selectors and request boundaries in `specs/site/*.spec.yml`.
+6. Add fast unit tests before live e2e tests.
+7. Only publish after a tarball install smoke test in a temp directory.
 
 For environment-only configuration during exploration:
 
@@ -74,7 +74,7 @@ site-cdp rpc
 Common browser options:
 
 - `--cdp-url <url>` attaches to a running Chrome and never owns its lifecycle.
-- `--chrome-path <path>` selects Chrome/Chromium when launching.
+- `--chrome-path <path>` selects Chrome/Chromium when launching; if omitted, the runtime checks `CHROME_PATH` and common OS install paths.
 - `--user-data-dir <path>` isolates browser state for launched sessions.
 - `--headless` launches in headless mode when not attaching.
 - `--timeout-ms <ms>` controls CDP operation timeout.
@@ -116,6 +116,7 @@ scripts/                        package/spec verification helpers
 - Test normalization and output shape without a browser.
 - Add live browser tests only around stable user-visible behavior.
 - Keep release tarballs ignored, then install and smoke test the tarball before publishing.
+- Keep generated package contents narrow; tests and specs should not be included in the npm tarball unless intentionally exposed.
 
 ## Release Smoke
 
