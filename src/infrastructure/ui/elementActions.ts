@@ -3,7 +3,7 @@ import { RuntimeFailure } from '../../shared/errors/runtimeFailure.js'
 import { pickFirstEnabledCandidate, snapshotElements, type ElementCandidate, type ElementQuery } from './elementIntrospection.js'
 
 export type ElementActionResult = {
-  action: 'click' | 'type' | 'press' | 'upload'
+  action: 'click' | 'type' | 'press'
   target: ElementCandidate
 }
 

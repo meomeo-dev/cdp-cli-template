@@ -10,7 +10,7 @@ const packageVersion = readJson('package.json').version ?? '0.1.0'
 
 updateJson('package.json', data => {
   data.name = packageName
-  data.description = `CDP CLI for ${siteName}.`
+  data.description = `Browser QA CLI for ${siteName}.`
   data.bin = { [binName]: 'dist/src/cli.js' }
   return data
 })
@@ -24,11 +24,11 @@ updateJson('package-lock.json', data => {
 })
 replaceInFile('README.md', /cdp-cli-template/g, packageName)
 replaceInFile('README.md', /site-cdp/g, binName)
-replaceInFile('README.md', /CDP CLI Template/g, `${siteName} CDP CLI`)
+replaceInFile('README.md', /Browser QA CLI Template/g, `${siteName} Browser QA CLI`)
 replaceInFile('README.md', /Example Site/g, siteName)
 replaceInFile('README.md', /https:\/\/example\.com\//g, siteUrl)
 replaceInFile('README.md', new RegExp(`/tmp/${packageName}-${packageVersion}\\.tgz`, 'g'), `/tmp/${packageName}-${packageVersion}.tgz`)
-replaceInFile('SKILL.md', /CDP CLI Template/g, `${siteName} CDP CLI`)
+replaceInFile('SKILL.md', /Browser QA CLI Template/g, `${siteName} Browser QA CLI`)
 replaceInFile('src/interfaces/cli/program.ts', /\.name\('site-cdp'\)/, `.name('${binName}')`)
 replaceInFile('src/interfaces/cli/program.ts', /cdp-cli-template/g, packageName)
 replaceInFile('src/infrastructure/site/siteRegistry.ts', /id: 'example'/, `id: '${toSiteId(packageName)}'`)

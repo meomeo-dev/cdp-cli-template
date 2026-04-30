@@ -53,11 +53,12 @@ export function startNetworkObservation(
     const requestId = `req-${nextRequestSequence}`
     nextRequestSequence += 1
     requestIds.set(request, requestId)
-    const matched = matchEndpointRecord(catalog, { url: request.url(), method: request.method() })
+    const requestUrl = redactUrl(request.url())
+    const matched = matchEndpointRecord(catalog, { url: requestUrl, method: request.method() })
     observations.push({
       requestId,
       method: request.method(),
-      url: request.url(),
+      url: requestUrl,
       resourceType: request.resourceType(),
       matchedEndpointId: matched?.id,
       startedAt: new Date().toISOString(),
@@ -157,6 +158,17 @@ function urlMatchesPattern(url: string, pattern: string): boolean {
   }
 
   return url.includes(pattern)
+}
+
+function redactUrl(url: string): string {
+  try {
+    const parsedUrl = new URL(url)
+    parsedUrl.search = ''
+    parsedUrl.hash = ''
+    return parsedUrl.toString()
+  } catch {
+    return url.split(/[?#]/u)[0] ?? url
+  }
 }
 
 function escapeRegExp(value: string): string {

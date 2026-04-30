@@ -1,7 +1,7 @@
 {
   "name": "cdp-cli-template",
   "version": "0.2.0",
-  "description": "Template for building website-specific CDP CLI tools.",
+  "description": "Template for building approved-site browser QA CLI tools.",
   "type": "module",
   "private": true,
   "bin": {

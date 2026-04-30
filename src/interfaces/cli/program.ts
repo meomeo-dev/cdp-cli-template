@@ -27,7 +27,7 @@ export function createProgram(metadata: PackageMetadata): Command {
 
   program
     .name('site-cdp')
-    .description('Template CLI for automating one or more websites through Chrome DevTools Protocol.')
+    .description('Template CLI for approved-site browser QA and integration checks.')
     .version(metadata.version)
     .enablePositionalOptions()
     .showHelpAfterError()
@@ -36,7 +36,7 @@ export function createProgram(metadata: PackageMetadata): Command {
 
   program
     .command('describe')
-    .description('Describe configured sites, auth profiles, workflows, CLI commands, and RPC methods.')
+    .description('Describe configured sites, session profiles, workflows, CLI commands, and RPC methods.')
     .option('--format <format>', 'Output format: json or text', 'json')
     .action(async options => {
       await runCliAction(options, async () => describeSystem(metadata.name, metadata.version, registry.config))
@@ -44,7 +44,7 @@ export function createProgram(metadata: PackageMetadata): Command {
 
   program
     .command('sites')
-    .description('List configured sites and their auth requirements.')
+    .description('List configured sites and their session requirements.')
     .option('--format <format>', 'Output format: json or text', 'json')
     .action(async options => {
       await runCliAction(options, async () => ({
@@ -64,7 +64,7 @@ export function createProgram(metadata: PackageMetadata): Command {
 
   program
     .command('endpoints')
-    .description('List known API endpoints and their evidence status.')
+    .description('List known endpoint metadata and evidence status.')
     .option('--format <format>', 'Output format: json or text', 'json')
     .action(async options => {
       await runCliAction(options, async () => listEndpoints(endpointCatalog))
@@ -84,7 +84,7 @@ export function createProgram(metadata: PackageMetadata): Command {
 
   program
     .command('inspect-network')
-    .description('Open a target site and record sanitized network endpoint observations.')
+    .description('Open a target site and record redacted network metadata.')
     .option('--site <siteId>', 'Site id to inspect; defaults to the registry default site')
     .option('--format <format>', 'Output format: json or text', 'json')
     .action(async options => {

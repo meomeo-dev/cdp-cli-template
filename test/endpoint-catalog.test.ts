@@ -10,7 +10,7 @@ import {
 test('endpoint catalog lists configured API endpoint records', () => {
   const catalog = createCatalogFixture()
 
-  assert.deepEqual(listEndpointCatalog(catalog).map(record => record.id), ['search-api'])
+  assert.deepEqual(listEndpointCatalog(catalog).map(record => record.id), ['docs-search'])
 })
 
 test('endpoint catalog matches by method and wildcard URL pattern', () => {
@@ -19,14 +19,14 @@ test('endpoint catalog matches by method and wildcard URL pattern', () => {
   assert.equal(
     matchEndpointRecord(catalog, {
       method: 'GET',
-      url: 'https://www.google.com/search?q=v2ex',
+      url: 'https://example.com/docs/search',
     })?.id,
-    'search-api',
+    'docs-search',
   )
   assert.equal(
     matchEndpointRecord(catalog, {
       method: 'POST',
-      url: 'https://www.google.com/search?q=v2ex',
+      url: 'https://example.com/docs/search',
     }),
     undefined,
   )
@@ -43,13 +43,13 @@ function createCatalogFixture(): EndpointCatalog {
   return {
     records: [
       {
-        id: 'search-api',
+        id: 'docs-search',
         method: 'GET',
-        urlPattern: 'https://www.google.com/search*',
+        urlPattern: 'https://example.com/docs/search*',
         category: 'search',
         evidenceStatus: 'observed',
-        description: 'Search result page request used as a discovery endpoint.',
-        siteIds: ['google'],
+        description: 'Docs search page request used by the smoke check.',
+        siteIds: ['docs-example'],
       },
     ],
   }

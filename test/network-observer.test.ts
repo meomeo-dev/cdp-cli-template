@@ -4,7 +4,7 @@ import { EventEmitter } from 'node:events'
 import { startNetworkObservation } from '../src/infrastructure/network/networkObserver.js'
 import type { EndpointCatalog } from '../src/infrastructure/network/endpointCatalog.js'
 
-test('network observer records sanitized request and response metadata', () => {
+test('network observer records redacted request and response metadata', () => {
   const page = new FakePage()
   const catalog: EndpointCatalog = {
     records: [
@@ -19,7 +19,7 @@ test('network observer records sanitized request and response metadata', () => {
     ],
   }
   const session = startNetworkObservation(page.asPage(), { catalog })
-  const request = new FakeRequest('GET', 'https://example.com/api/items', 'xhr')
+  const request = new FakeRequest('GET', 'https://example.com/api/items?debug=true#details', 'xhr')
   const response = new FakeResponse(request, 200, 'OK')
 
   page.emit('request', request)
@@ -28,6 +28,7 @@ test('network observer records sanitized request and response metadata', () => {
 
   assert.equal(session.observations.length, 1)
   assert.equal(session.observations[0]?.method, 'GET')
+  assert.equal(session.observations[0]?.url, 'https://example.com/api/items')
   assert.equal(session.observations[0]?.matchedEndpointId, 'json-api')
   assert.equal(session.observations[0]?.status, 200)
   assert.equal(session.summary().observedCount, 1)

@@ -18,17 +18,20 @@ test('default site adapter exposes example.com contract', () => {
 })
 
 test('site registry can model multiple sites and multiple auth profiles', () => {
-  const registry = createSiteRegistry(createV2exGoogleRegistryFixture())
+  const registry = createSiteRegistry(createDocsRegistryFixture())
 
-  assert.equal(registry.defaultSite.id, 'v2ex')
-  assert.equal(registry.getSite('google').auth.mode, 'none')
-  assert.equal(registry.getSite('v2ex').auth.mode, 'required')
-  assert.equal(registry.getAuthProfile('v2ex-main').label, 'V2EX main account')
-  assert.equal(registry.config.workflows[0]?.steps.map(step => step.siteId).join(' -> '), 'google -> v2ex')
+  assert.equal(registry.defaultSite.id, 'docs-internal')
+  assert.equal(registry.getSite('docs-public').auth.mode, 'none')
+  assert.equal(registry.getSite('docs-internal').auth.mode, 'required')
+  assert.equal(registry.getAuthProfile('docs-reviewer').label, 'Docs reviewer profile')
+  assert.equal(
+    registry.config.workflows[0]?.steps.map(step => step.siteId).join(' -> '),
+    'docs-public -> docs-internal',
+  )
 })
 
 test('site registry rejects workflow references to unknown sites', () => {
-  const config = createV2exGoogleRegistryFixture()
+  const config = createDocsRegistryFixture()
   config.workflows[0]?.steps.push({
     id: 'bad-step',
     siteId: 'missing',
@@ -40,10 +43,10 @@ test('site registry rejects workflow references to unknown sites', () => {
 })
 
 test('site registry rejects unknown auth profile references', () => {
-  const config = createV2exGoogleRegistryFixture()
-  const v2ex = config.sites.find(site => site.id === 'v2ex')
-  assert.ok(v2ex)
-  v2ex.auth.profileId = 'missing-profile'
+  const config = createDocsRegistryFixture()
+  const internalDocs = config.sites.find(site => site.id === 'docs-internal')
+  assert.ok(internalDocs)
+  internalDocs.auth.profileId = 'missing-profile'
 
   assert.throws(() => createSiteRegistry(config), /unknown auth profile/)
 })
@@ -51,28 +54,28 @@ test('site registry rejects unknown auth profile references', () => {
 test('site registry config can be supplied by environment variables', () => {
   const previous = snapshotEnv()
   try {
-    process.env.SITE_ID = 'weixin-sogou'
-    process.env.SITE_NAME = 'Sogou Weixin'
-    process.env.SITE_BASE_URL = 'https://weixin.sogou.com/'
+    process.env.SITE_ID = 'docs-example'
+    process.env.SITE_NAME = 'Example Docs'
+    process.env.SITE_BASE_URL = 'https://example.com/docs/'
     process.env.SITE_READY_SELECTOR = 'body'
     process.env.SITE_SEARCH_INPUT_SELECTOR = 'input[name=query]'
-    process.env.SITE_RESULT_ITEMS_SELECTOR = '.news-box li'
+    process.env.SITE_RESULT_ITEMS_SELECTOR = '.doc-card, article'
     process.env.SITE_AUTH_MODE = 'optional'
-    process.env.SITE_AUTH_PROFILE_ID = 'sogou-reader'
-    process.env.SITE_AUTH_PROFILE_LABEL = 'Sogou reader profile'
+    process.env.SITE_AUTH_PROFILE_ID = 'docs-reviewer'
+    process.env.SITE_AUTH_PROFILE_LABEL = 'Docs reviewer profile'
     process.env.SITE_ROLES = 'search,content'
 
     const registry = loadSiteRegistryFromEnv()
     const config = registry.defaultSite
-    assert.equal(config.id, 'weixin-sogou')
-    assert.equal(config.name, 'Sogou Weixin')
-    assert.equal(config.baseUrl, 'https://weixin.sogou.com/')
+    assert.equal(config.id, 'docs-example')
+    assert.equal(config.name, 'Example Docs')
+    assert.equal(config.baseUrl, 'https://example.com/docs/')
     assert.equal(config.selectors.searchInput, 'input[name=query]')
-    assert.equal(config.selectors.resultItems, '.news-box li')
+    assert.equal(config.selectors.resultItems, '.doc-card, article')
     assert.equal(config.auth.mode, 'optional')
-    assert.equal(config.auth.profileId, 'sogou-reader')
+    assert.equal(config.auth.profileId, 'docs-reviewer')
     assert.deepEqual(config.roles, ['search', 'content'])
-    assert.equal(registry.getAuthProfile('sogou-reader').label, 'Sogou reader profile')
+    assert.equal(registry.getAuthProfile('docs-reviewer').label, 'Docs reviewer profile')
   } finally {
     restoreEnv(previous)
   }
@@ -82,64 +85,64 @@ test('default config is valid for adapter construction', () => {
   assert.doesNotThrow(() => createSiteAdapter(defaultSiteConfig))
 })
 
-function createV2exGoogleRegistryFixture(): SiteRegistryConfig {
+function createDocsRegistryFixture(): SiteRegistryConfig {
   return {
-    defaultSiteId: 'v2ex',
+    defaultSiteId: 'docs-internal',
     authProfiles: [
       {
-        id: 'v2ex-main',
-        label: 'V2EX main account',
-        userDataDir: '/tmp/cdp-cli-v2ex-profile',
+        id: 'docs-reviewer',
+        label: 'Docs reviewer profile',
+        userDataDir: '/tmp/cdp-cli-docs-reviewer-profile',
       },
     ],
     sites: [
       {
-        id: 'google',
-        name: 'Google Search',
-        baseUrl: 'https://www.google.com/search?q=site%3Av2ex.com',
+        id: 'docs-public',
+        name: 'Public Docs',
+        baseUrl: 'https://example.com/docs/',
         selectors: {
           ready: 'body',
-          searchInput: 'textarea[name=q], input[name=q]',
+          searchInput: 'input[name=q]',
           resultItems: 'a',
         },
         auth: { mode: 'none' },
-        roles: ['search'],
+        roles: ['docs', 'search'],
       },
       {
-        id: 'v2ex',
-        name: 'V2EX',
-        baseUrl: 'https://www.v2ex.com/',
+        id: 'docs-internal',
+        name: 'Internal Docs',
+        baseUrl: 'https://example.com/internal/docs/',
         selectors: {
           ready: 'body',
-          resultItems: '.cell, .topic_content',
+          resultItems: '.doc-card, article',
         },
         auth: {
           mode: 'required',
-          profileId: 'v2ex-main',
-          loginUrl: 'https://www.v2ex.com/signin',
-          checkSelector: '#Top a[href="/signout"]',
+          profileId: 'docs-reviewer',
+          loginUrl: 'https://example.com/internal/docs/session',
+          checkSelector: '[data-session-ready="true"]',
         },
-        roles: ['content', 'forum'],
+        roles: ['docs', 'internal'],
       },
     ],
     workflows: [
       {
-        id: 'google-to-v2ex-original',
-        name: 'Google search then V2EX original',
-        description: 'Use public Google search discovery, then open V2EX with an authenticated profile.',
+        id: 'docs-public-to-internal',
+        name: 'Public docs then internal docs',
+        description: 'Use public docs search, then open internal docs with a prepared browser profile.',
         steps: [
           {
-            id: 'discover-via-google',
-            siteId: 'google',
+            id: 'search-public-docs',
+            siteId: 'docs-public',
             kind: 'search',
-            description: 'Search Google for V2EX pages.',
+            description: 'Search public docs.',
           },
           {
-            id: 'open-v2ex-original',
-            siteId: 'v2ex',
+            id: 'open-internal-docs',
+            siteId: 'docs-internal',
             kind: 'open',
-            authProfileId: 'v2ex-main',
-            description: 'Open the original V2EX page using the logged-in profile.',
+            authProfileId: 'docs-reviewer',
+            description: 'Open internal docs using the prepared profile.',
           },
         ],
       },
