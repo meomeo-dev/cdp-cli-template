@@ -1,6 +1,6 @@
 {
   "name": "cdp-cli-template",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Template for building approved-site browser QA CLI tools.",
   "type": "module",
   "private": true,
@@ -33,6 +33,8 @@
     "commander": "^14.0.3",
     "picocolors": "^1.1.1",
     "puppeteer-core": "^24.29.0",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
     "zod": "^4.1.12"
   },
   "devDependencies": {

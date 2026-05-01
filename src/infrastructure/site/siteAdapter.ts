@@ -21,7 +21,39 @@ export type AuthProfileConfig = {
   label: string
   description?: string | undefined
   userDataDir?: string | undefined
+  profileDirectory?: string | undefined
+  profile?: BrowserProfileConfig | undefined
   notes?: string[] | undefined
+}
+
+export type BrowserInteractionConfig = {
+  hoverBeforeClick?: boolean | undefined
+  scrollIntoView?: boolean | undefined
+  clickDelayMs?: number | undefined
+  typeDelayMs?: number | undefined
+  pressDelayMs?: number | undefined
+}
+
+export type BrowserProfileConfig = {
+  userAgent?: string | undefined
+  locale?: string | undefined
+  timezoneId?: string | undefined
+  viewport?: {
+    width: number
+    height: number
+    deviceScaleFactor?: number | undefined
+    isMobile?: boolean | undefined
+    hasTouch?: boolean | undefined
+    isLandscape?: boolean | undefined
+  } | undefined
+  geolocation?: {
+    latitude: number
+    longitude: number
+    accuracy?: number | undefined
+  } | undefined
+  extraHeaders?: Record<string, string> | undefined
+  proxyServer?: string | undefined
+  interaction?: BrowserInteractionConfig | undefined
 }
 
 export type SiteConfig = {

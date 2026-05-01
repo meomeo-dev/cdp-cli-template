@@ -1,9 +1,13 @@
 import { createInterface } from 'node:readline/promises'
 import { stdin, stdout } from 'node:process'
 import { z } from 'zod'
+import { showManagedProfile } from '../../application/usecases/profileManagement.js'
+import { resolveBrowserOptionsForSite } from '../../application/usecases/browserOptions.js'
+import { cloneAuthProfile, loginAuthProfile, logoutAuthProfile } from '../../application/usecases/authProfiles.js'
 import { describeSystem } from '../../application/usecases/describeSystem.js'
 import { inspectNetwork } from '../../application/usecases/inspectNetwork.js'
 import { listEndpoints } from '../../application/usecases/listEndpoints.js'
+import { exportSessionState, importSessionState } from '../../application/usecases/sessionState.js'
 import type { EndpointCatalog } from '../../infrastructure/network/endpointCatalog.js'
 import { inspectHome } from '../../application/usecases/inspectHome.js'
 import { searchSite } from '../../application/usecases/searchSite.js'
@@ -25,6 +29,26 @@ const inspectParamsSchema = z.object({
 const searchParamsSchema = z.object({
   query: z.string().min(1),
   siteId: z.string().min(1).optional(),
+})
+
+const sessionStateParamsSchema = z.object({
+  path: z.string().min(1),
+})
+
+const authProfileParamsSchema = z.object({
+  siteId: z.string().min(1).optional(),
+  authProfileId: z.string().min(1).optional(),
+})
+
+const authLoginParamsSchema = authProfileParamsSchema.extend({
+  url: z.string().min(1).optional(),
+  force: z.boolean().optional(),
+})
+
+const profileCloneParamsSchema = authProfileParamsSchema.extend({
+  sourceUserDataDir: z.string().min(1),
+  sourceProfileDirectory: z.string().min(1).optional(),
+  force: z.boolean().optional(),
 })
 
 type RequestId = string | number | null
@@ -85,17 +109,42 @@ async function dispatch(
       }
     case 'workflow.list':
       return { workflows: options.registry.config.workflows }
+    case 'browser.authProfileShow': {
+      const parsedParams = authProfileParamsSchema.parse(params ?? {})
+      return showManagedProfile(options.registry, parsedParams)
+    }
+    case 'browser.authLogin': {
+      const parsedParams = authLoginParamsSchema.parse(params ?? {})
+      return loginAuthProfile(options.registry, {
+        siteId: parsedParams.siteId,
+        authProfileId: parsedParams.authProfileId,
+        browserOptions: options.browserOptions,
+        url: parsedParams.url,
+        force: parsedParams.force,
+      })
+    }
+    case 'browser.authLogout': {
+      const parsedParams = authProfileParamsSchema.parse(params ?? {})
+      return logoutAuthProfile(options.registry, parsedParams)
+    }
+    case 'browser.profileClone': {
+      const parsedParams = profileCloneParamsSchema.parse(params)
+      return cloneAuthProfile(options.registry, parsedParams)
+    }
     case 'endpoint.list':
       return listEndpoints(options.endpointCatalog)
     case 'site.inspectHome': {
       const parsedParams = inspectParamsSchema.parse(params ?? {})
-      return inspectHome(options.registry.createAdapter(parsedParams.siteId), options.browserOptions)
+      return inspectHome(
+        options.registry.createAdapter(parsedParams.siteId),
+        resolveBrowserOptionsForSite(options.registry, options.browserOptions, parsedParams.siteId),
+      )
     }
     case 'site.inspectNetwork': {
       const parsedParams = inspectParamsSchema.parse(params ?? {})
       return inspectNetwork(
         options.registry.createAdapter(parsedParams.siteId),
-        options.browserOptions,
+        resolveBrowserOptionsForSite(options.registry, options.browserOptions, parsedParams.siteId),
         options.endpointCatalog,
       )
     }
@@ -103,9 +152,17 @@ async function dispatch(
       const parsedParams = searchParamsSchema.parse(params)
       return searchSite(
         options.registry.createAdapter(parsedParams.siteId),
-        options.browserOptions,
+        resolveBrowserOptionsForSite(options.registry, options.browserOptions, parsedParams.siteId),
         parsedParams.query,
       )
+    }
+    case 'browser.sessionExport': {
+      const parsedParams = sessionStateParamsSchema.parse(params)
+      return exportSessionState(options.browserOptions, parsedParams.path)
+    }
+    case 'browser.sessionImport': {
+      const parsedParams = sessionStateParamsSchema.parse(params)
+      return importSessionState(options.browserOptions, parsedParams.path)
     }
     default:
       throw new RuntimeFailure('RPC_METHOD_NOT_FOUND', `Unknown RPC method: ${method}`, { method })

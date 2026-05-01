@@ -2,6 +2,12 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import test from 'node:test'
+import {
+  isPathInside,
+  resolveAppHomeDir,
+  resolveDefaultBrowserUserDataDir,
+  resolveManagedAuthProfilePaths,
+} from '../src/shared/runtime/appPaths.js'
 import { resolveChromeExecutablePath } from '../src/shared/runtime/chromeExecutable.js'
 import { findNearestPackageRoot } from '../src/shared/runtime/projectRoot.js'
 
@@ -30,6 +36,34 @@ test('resolveChromeExecutablePath falls back to CHROME_PATH', () => {
   } finally {
     restoreEnvValue('CHROME_PATH', previous)
   }
+})
+
+test('resolveAppHomeDir defaults to a package-scoped user home directory', () => {
+  const env = {
+    HOME: '/Users/tester',
+  } as NodeJS.ProcessEnv
+
+  assert.equal(resolveAppHomeDir(env, 'cdp-cli-template'), '/Users/tester/.cdp-cli-template')
+  assert.equal(resolveDefaultBrowserUserDataDir(env, 'cdp-cli-template'), '/Users/tester/.cdp-cli-template/browser-profile')
+})
+
+test('resolveManagedAuthProfilePaths isolates auth profiles under app auth root', () => {
+  const env = {
+    HOME: '/Users/tester',
+  } as NodeJS.ProcessEnv
+
+  const paths = resolveManagedAuthProfilePaths('v2ex-main', env, 'cdp-cli-template')
+  assert.equal(paths.authDir, '/Users/tester/.cdp-cli-template/auth/v2ex-main')
+  assert.equal(paths.chromeUserDataDir, '/Users/tester/.cdp-cli-template/auth/v2ex-main/chrome-profile')
+  assert.equal(paths.chromeProfileDirectory, 'Default')
+  assert.equal(paths.stateFile, '/Users/tester/.cdp-cli-template/auth/v2ex-main/auth-state.json')
+})
+
+test('isPathInside works for POSIX and Windows-style paths', () => {
+  assert.equal(isPathInside('/Users/tester/.cdp-cli-template/auth', '/Users/tester/.cdp-cli-template/auth/v2ex-main'), true)
+  assert.equal(isPathInside('/Users/tester/.cdp-cli-template/auth', '/Users/tester/.cdp-cli-template/browser-profile'), false)
+  assert.equal(isPathInside('C:\\Users\\tester\\.cdp-cli-template\\auth', 'C:\\Users\\tester\\.cdp-cli-template\\auth\\v2ex-main'), true)
+  assert.equal(isPathInside('C:\\Users\\tester\\.cdp-cli-template\\auth', 'C:\\Users\\tester\\.cdp-cli-template\\browser-profile'), false)
 })
 
 function readCurrentPackageName(): string | undefined {

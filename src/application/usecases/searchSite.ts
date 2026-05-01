@@ -12,5 +12,11 @@ export async function searchSite(
     throw new RuntimeFailure('INVALID_ARGUMENT', 'Search query must not be empty.')
   }
 
-  return withBrowserPage(browserOptions, lease => adapter.search(lease.page, trimmedQuery))
+  return withBrowserPage(
+    {
+      ...browserOptions,
+      initialUrl: browserOptions.initialUrl ?? adapter.config.baseUrl,
+    },
+    lease => adapter.search(lease.page, trimmedQuery),
+  )
 }

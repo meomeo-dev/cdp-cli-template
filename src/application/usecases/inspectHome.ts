@@ -5,5 +5,11 @@ export async function inspectHome(
   adapter: SiteAdapter,
   browserOptions: BrowserRuntimeOptions,
 ): Promise<InspectHomeResult> {
-  return withBrowserPage(browserOptions, lease => adapter.inspectHome(lease.page, lease.mode))
+  return withBrowserPage(
+    {
+      ...browserOptions,
+      initialUrl: browserOptions.initialUrl ?? adapter.config.baseUrl,
+    },
+    lease => adapter.inspectHome(lease.page, lease.mode),
+  )
 }

@@ -8,6 +8,7 @@ test-results
 coverage
 tmp
 artifacts
+.deepseek-cdp-cli
 *.log
 *.tgz
 *.zip

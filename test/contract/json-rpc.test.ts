@@ -37,6 +37,11 @@ test('system.describe returns JSON-RPC result with registry details', async () =
   assert.equal(readProperty(response, 'result.name'), 'cdp-cli-template')
   assert.equal(readProperty(response, 'result.site.id'), 'example')
   assert.equal(readProperty(response, 'result.registry.defaultSiteId'), 'example')
+  assert.equal(readProperty(response, 'result.browser.supportsProfileConsistency'), true)
+  assert.equal(readProperty(response, 'result.browser.supportsInteractionPacing'), true)
+  assert.equal(readProperty(response, 'result.browser.supportsSessionImportExport'), true)
+  assert.equal(readProperty(response, 'result.browser.supportsDedicatedManagedAuthProfiles'), true)
+  assert.equal(readProperty(response, 'result.browser.supportsProfileClone'), true)
 })
 
 test('site.list returns auth-aware site registry', async () => {
@@ -81,6 +86,14 @@ test('system.describe advertises endpoint observation surfaces', async () => {
   )
   assert.equal(
     (readProperty(response, 'result.rpcMethods') as string[]).includes('site.inspectNetwork'),
+    true,
+  )
+  assert.equal(
+    (readProperty(response, 'result.rpcMethods') as string[]).includes('browser.sessionExport'),
+    true,
+  )
+  assert.equal(
+    (readProperty(response, 'result.rpcMethods') as string[]).includes('browser.authLogin'),
     true,
   )
 })

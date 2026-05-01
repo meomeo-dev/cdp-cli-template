@@ -13,6 +13,34 @@ const authProfileSchema = z.object({
   label: z.string().min(1),
   description: z.string().min(1).optional(),
   userDataDir: z.string().min(1).optional(),
+  profileDirectory: z.string().min(1).optional(),
+  profile: z.object({
+    userAgent: z.string().min(1).optional(),
+    locale: z.string().min(1).optional(),
+    timezoneId: z.string().min(1).optional(),
+    viewport: z.object({
+      width: z.number().int().positive(),
+      height: z.number().int().positive(),
+      deviceScaleFactor: z.number().positive().optional(),
+      isMobile: z.boolean().optional(),
+      hasTouch: z.boolean().optional(),
+      isLandscape: z.boolean().optional(),
+    }).optional(),
+    geolocation: z.object({
+      latitude: z.number(),
+      longitude: z.number(),
+      accuracy: z.number().nonnegative().optional(),
+    }).optional(),
+    extraHeaders: z.record(z.string(), z.string()).optional(),
+    proxyServer: z.string().min(1).optional(),
+    interaction: z.object({
+      hoverBeforeClick: z.boolean().optional(),
+      scrollIntoView: z.boolean().optional(),
+      clickDelayMs: z.number().int().nonnegative().optional(),
+      typeDelayMs: z.number().int().nonnegative().optional(),
+      pressDelayMs: z.number().int().nonnegative().optional(),
+    }).optional(),
+  }).optional(),
   notes: z.array(z.string().min(1)).optional(),
 }) satisfies z.ZodType<AuthProfileConfig>
 
@@ -176,6 +204,10 @@ export class SiteRegistry {
     return profile
   }
 
+  listSitesForAuthProfile(profileId: string): SiteConfig[] {
+    return this.config.sites.filter(site => site.auth.profileId === profileId)
+  }
+
   createAdapter(siteId = this.config.defaultSiteId): SiteAdapter {
     return createSiteAdapter(this.getSite(siteId))
   }
@@ -239,6 +271,7 @@ function loadAuthProfilesFromEnv(): AuthProfileConfig[] {
       id: profileId,
       label: process.env.SITE_AUTH_PROFILE_LABEL ?? profileId,
       userDataDir: process.env.SITE_AUTH_USER_DATA_DIR,
+      profileDirectory: process.env.SITE_AUTH_PROFILE_DIRECTORY,
       notes: parseCsv(process.env.SITE_AUTH_NOTES),
     },
   ]

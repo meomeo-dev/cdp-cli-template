@@ -1,17 +1,26 @@
 import { mkdir } from 'node:fs/promises'
-import { dirname, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
-import puppeteer, { type Browser, type Page } from 'puppeteer-core'
+import vanillaPuppeteer, { type Browser, type CookieData, type Page, type Viewport } from 'puppeteer-core'
+import { addExtra, type VanillaPuppeteer } from 'puppeteer-extra'
+import StealthPlugin from 'puppeteer-extra-plugin-stealth'
+import type { BrowserProfileConfig } from '../site/siteAdapter.js'
+import { setPageInteractionProfile } from '../ui/interactionProfile.js'
 import { RuntimeFailure } from '../../shared/errors/runtimeFailure.js'
+import { resolveDefaultBrowserUserDataDir } from '../../shared/runtime/appPaths.js'
 import { resolveChromeExecutablePath } from '../../shared/runtime/chromeExecutable.js'
-import { findNearestPackageRoot } from '../../shared/runtime/projectRoot.js'
+
+const puppeteer = addExtra(createPuppeteerExtraAdapter())
+puppeteer.use(StealthPlugin())
 
 export type BrowserRuntimeOptions = {
   cdpUrl?: string | undefined
   executablePath?: string | undefined
   userDataDir?: string | undefined
+  chromeProfileDirectory?: string | undefined
+  authProfileId?: string | undefined
+  initialUrl?: string | undefined
   headless: boolean
   timeoutMs: number
+  profile?: BrowserProfileConfig | undefined
 }
 
 export type BrowserLease = {
@@ -19,6 +28,14 @@ export type BrowserLease = {
   page: Page
   close: () => Promise<void>
   mode: 'attached' | 'launched'
+}
+
+export type BrowserSessionSnapshot = {
+  cookies: CookieData[]
+  origins: Array<{
+    origin: string
+    localStorage: Record<string, string>
+  }>
 }
 
 export async function withBrowserPage<T>(
@@ -35,13 +52,18 @@ export async function withBrowserPage<T>(
 
 async function openBrowserPage(options: BrowserRuntimeOptions): Promise<BrowserLease> {
   if (options.cdpUrl !== undefined && options.cdpUrl.trim() !== '') {
-    return connectToExistingBrowser(options.cdpUrl, options.timeoutMs)
+    return connectToExistingBrowser(options.cdpUrl, options.timeoutMs, options.profile, options.initialUrl)
   }
 
   return launchBrowser(options)
 }
 
-async function connectToExistingBrowser(cdpUrl: string, timeoutMs: number): Promise<BrowserLease> {
+async function connectToExistingBrowser(
+  cdpUrl: string,
+  timeoutMs: number,
+  profile: BrowserProfileConfig | undefined,
+  initialUrl: string | undefined,
+): Promise<BrowserLease> {
   let browser: Browser
   try {
     browser = await puppeteer.connect({ browserURL: cdpUrl, protocolTimeout: timeoutMs })
@@ -53,6 +75,7 @@ async function connectToExistingBrowser(cdpUrl: string, timeoutMs: number): Prom
   }
 
   const page = await browser.newPage()
+  await applyBrowserProfile(page, browser, profile, initialUrl)
   return {
     browser,
     page,
@@ -75,7 +98,14 @@ async function launchBrowser(options: BrowserRuntimeOptions): Promise<BrowserLea
       userDataDir,
       headless: options.headless,
       protocolTimeout: options.timeoutMs,
-      args: ['--no-first-run', '--no-default-browser-check'],
+      ignoreDefaultArgs: ['--enable-automation'],
+      args: [
+        '--no-first-run',
+        '--no-default-browser-check',
+        '--disable-blink-features=AutomationControlled',
+        ...(options.chromeProfileDirectory !== undefined ? [`--profile-directory=${options.chromeProfileDirectory}`] : []),
+        ...(options.profile?.proxyServer !== undefined ? [`--proxy-server=${options.profile.proxyServer}`] : []),
+      ],
       ...(executablePath !== undefined ? { executablePath } : {}),
     })
   } catch (error) {
@@ -87,6 +117,7 @@ async function launchBrowser(options: BrowserRuntimeOptions): Promise<BrowserLea
   }
 
   const page = await acquirePage(browser)
+  await applyBrowserProfile(page, browser, options.profile, options.initialUrl)
   return {
     browser,
     page,
@@ -116,7 +147,132 @@ async function closePageQuietly(page: Page): Promise<void> {
 }
 
 function defaultUserDataDir(): string {
-  const currentFile = fileURLToPath(import.meta.url)
-  const packageRoot = findNearestPackageRoot(dirname(currentFile))
-  return resolve(packageRoot, '.site-cdp/browser-profile')
+  return resolveDefaultBrowserUserDataDir()
+}
+
+export async function exportBrowserSession(page: Page): Promise<BrowserSessionSnapshot> {
+  const cookies = await page.cookies()
+  const origins = await page.evaluate(() => {
+    const origin = window.location.origin
+    const entries = Object.fromEntries(
+      Array.from({ length: window.localStorage.length }, (_, index) => {
+        const key = window.localStorage.key(index)
+        return key === null ? null : [key, window.localStorage.getItem(key) ?? '']
+      }).filter((entry): entry is [string, string] => entry !== null),
+    )
+    return [{ origin, localStorage: entries }]
+  })
+
+  return { cookies, origins }
+}
+
+export async function importBrowserSession(page: Page, snapshot: BrowserSessionSnapshot): Promise<void> {
+  if (snapshot.cookies.length > 0) {
+    await page.setCookie(...snapshot.cookies)
+  }
+
+  if (snapshot.origins.length === 0) {
+    return
+  }
+
+  const initialUrl = page.url()
+  for (const originState of snapshot.origins) {
+    const targetUrl = originToNavigableUrl(originState.origin)
+    await page.goto(targetUrl, { waitUntil: 'domcontentloaded' })
+    await page.evaluate(entries => {
+      window.localStorage.clear()
+      for (const [key, value] of Object.entries(entries)) {
+        window.localStorage.setItem(key, value)
+      }
+    }, originState.localStorage)
+  }
+
+  if (initialUrl !== 'about:blank') {
+    await page.goto(initialUrl, { waitUntil: 'domcontentloaded' })
+  }
+}
+
+function createPuppeteerExtraAdapter(): VanillaPuppeteer {
+  return {
+    connect: (options: Parameters<typeof vanillaPuppeteer.connect>[0]) => vanillaPuppeteer.connect(options),
+    defaultArgs: (options: Parameters<typeof vanillaPuppeteer.defaultArgs>[0]) => vanillaPuppeteer.defaultArgs(options),
+    executablePath: () => vanillaPuppeteer.executablePath(),
+    launch: (options: Parameters<typeof vanillaPuppeteer.launch>[0]) => vanillaPuppeteer.launch(options),
+    createBrowserFetcher: () => {
+      throw new Error('createBrowserFetcher is not supported by this puppeteer-core runtime adapter.')
+    },
+  }
+}
+
+async function applyBrowserProfile(
+  page: Page,
+  browser: Browser,
+  profile: BrowserProfileConfig | undefined,
+  initialUrl: string | undefined,
+): Promise<void> {
+  setPageInteractionProfile(page, profile?.interaction)
+
+  if (profile === undefined) {
+    return
+  }
+
+  if (profile.extraHeaders !== undefined) {
+    await page.setExtraHTTPHeaders(profile.extraHeaders)
+  }
+
+  if (profile.userAgent !== undefined) {
+    await page.setUserAgent({ userAgent: profile.userAgent })
+  }
+
+  if (profile.viewport !== undefined) {
+    await page.setViewport(toViewport(profile.viewport))
+  }
+
+  if (profile.timezoneId !== undefined) {
+    await page.emulateTimezone(profile.timezoneId)
+  }
+
+  if (profile.locale !== undefined) {
+    await page.evaluateOnNewDocument(locale => {
+      const languages = locale.split(',').map(value => value.trim()).filter(Boolean)
+      Object.defineProperty(navigator, 'language', {
+        configurable: true,
+        get: () => languages[0] ?? locale,
+      })
+      Object.defineProperty(navigator, 'languages', {
+        configurable: true,
+        get: () => (languages.length > 0 ? languages : [locale]),
+      })
+    }, profile.locale)
+  }
+
+  if (profile.geolocation !== undefined) {
+    if (initialUrl !== undefined) {
+      await browser.defaultBrowserContext().overridePermissions(new URL(initialUrl).origin, ['geolocation'])
+    }
+    await page.setGeolocation({
+      latitude: profile.geolocation.latitude,
+      longitude: profile.geolocation.longitude,
+      ...(profile.geolocation.accuracy !== undefined ? { accuracy: profile.geolocation.accuracy } : {}),
+    })
+  }
+}
+
+function toViewport(viewport: NonNullable<BrowserProfileConfig['viewport']>): Viewport {
+  return {
+    width: viewport.width,
+    height: viewport.height,
+    ...(viewport.deviceScaleFactor !== undefined ? { deviceScaleFactor: viewport.deviceScaleFactor } : {}),
+    ...(viewport.isMobile !== undefined ? { isMobile: viewport.isMobile } : {}),
+    ...(viewport.hasTouch !== undefined ? { hasTouch: viewport.hasTouch } : {}),
+    ...(viewport.isLandscape !== undefined ? { isLandscape: viewport.isLandscape } : {}),
+  }
+}
+
+function originToNavigableUrl(origin: string): string {
+  const url = new URL(origin)
+  url.pathname = '/'
+  url.search = ''
+  url.hash = ''
+  return url.toString()
 }

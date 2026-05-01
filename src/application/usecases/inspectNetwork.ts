@@ -19,21 +19,27 @@ export async function inspectNetwork(
   browserOptions: BrowserRuntimeOptions,
   catalog: EndpointCatalog,
 ): Promise<InspectNetworkResult> {
-  return withBrowserPage(browserOptions, async lease => {
-    const session = startNetworkObservation(lease.page, {
-      catalog,
-      urlAllowlist: [new URL(adapter.config.baseUrl).origin],
-    })
-    try {
-      await adapter.inspectHome(lease.page, lease.mode)
-      return {
-        site: adapter.config,
-        finalUrl: lease.page.url(),
-        observations: [...session.observations],
-        summary: session.summary(),
+  return withBrowserPage(
+    {
+      ...browserOptions,
+      initialUrl: browserOptions.initialUrl ?? adapter.config.baseUrl,
+    },
+    async lease => {
+      const session = startNetworkObservation(lease.page, {
+        catalog,
+        urlAllowlist: [new URL(adapter.config.baseUrl).origin],
+      })
+      try {
+        await adapter.inspectHome(lease.page, lease.mode)
+        return {
+          site: adapter.config,
+          finalUrl: lease.page.url(),
+          observations: [...session.observations],
+          summary: session.summary(),
+        }
+      } finally {
+        session.stop()
       }
-    } finally {
-      session.stop()
-    }
-  })
+    },
+  )
 }

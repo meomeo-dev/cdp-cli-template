@@ -24,6 +24,8 @@ test('site registry can model multiple sites and multiple auth profiles', () => 
   assert.equal(registry.getSite('docs-public').auth.mode, 'none')
   assert.equal(registry.getSite('docs-internal').auth.mode, 'required')
   assert.equal(registry.getAuthProfile('docs-reviewer').label, 'Docs reviewer profile')
+  assert.equal(registry.getAuthProfile('docs-reviewer').profile?.interaction?.scrollIntoView, true)
+  assert.equal(registry.listSitesForAuthProfile('docs-reviewer')[0]?.id, 'docs-internal')
   assert.equal(
     registry.config.workflows[0]?.steps.map(step => step.siteId).join(' -> '),
     'docs-public -> docs-internal',
@@ -63,6 +65,7 @@ test('site registry config can be supplied by environment variables', () => {
     process.env.SITE_AUTH_MODE = 'optional'
     process.env.SITE_AUTH_PROFILE_ID = 'docs-reviewer'
     process.env.SITE_AUTH_PROFILE_LABEL = 'Docs reviewer profile'
+    process.env.SITE_AUTH_USER_DATA_DIR = '/tmp/docs-reviewer'
     process.env.SITE_ROLES = 'search,content'
 
     const registry = loadSiteRegistryFromEnv()
@@ -76,6 +79,7 @@ test('site registry config can be supplied by environment variables', () => {
     assert.equal(config.auth.profileId, 'docs-reviewer')
     assert.deepEqual(config.roles, ['search', 'content'])
     assert.equal(registry.getAuthProfile('docs-reviewer').label, 'Docs reviewer profile')
+    assert.equal(registry.getAuthProfile('docs-reviewer').userDataDir, '/tmp/docs-reviewer')
   } finally {
     restoreEnv(previous)
   }
@@ -93,6 +97,12 @@ function createDocsRegistryFixture(): SiteRegistryConfig {
         id: 'docs-reviewer',
         label: 'Docs reviewer profile',
         userDataDir: '/tmp/cdp-cli-docs-reviewer-profile',
+        profile: {
+          interaction: {
+            scrollIntoView: true,
+            typeDelayMs: 30,
+          },
+        },
       },
     ],
     sites: [

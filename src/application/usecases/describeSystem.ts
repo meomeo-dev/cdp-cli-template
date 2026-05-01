@@ -11,7 +11,14 @@ export type SystemDescription = {
     acceptsCdpUrl: boolean
     acceptsChromePath: boolean
     acceptsUserDataDir: boolean
+    acceptsChromeProfileDirectory: boolean
+    acceptsAuthProfileSelection: boolean
     supportsSharedUserDataDir: boolean
+    supportsProfileConsistency: boolean
+    supportsInteractionPacing: boolean
+    supportsSessionImportExport: boolean
+    supportsDedicatedManagedAuthProfiles: boolean
+    supportsProfileClone: boolean
   }
 }
 
@@ -25,13 +32,49 @@ export function describeSystem(
     version,
     registry,
     site: resolveDefaultSite(registry),
-    commands: ['describe', 'sites', 'workflows', 'endpoints', 'inspect-home', 'inspect-network', 'search', 'rpc'],
-    rpcMethods: ['system.describe', 'site.list', 'workflow.list', 'endpoint.list', 'site.inspectHome', 'site.inspectNetwork', 'site.search'],
+    commands: [
+      'describe',
+      'sites',
+      'workflows',
+      'auth login',
+      'auth logout',
+      'profile show',
+      'profile clone',
+      'endpoints',
+      'inspect-home',
+      'inspect-network',
+      'search',
+      'session-export',
+      'session-import',
+      'rpc',
+    ],
+    rpcMethods: [
+      'system.describe',
+      'site.list',
+      'workflow.list',
+      'browser.authProfileShow',
+      'browser.authLogin',
+      'browser.authLogout',
+      'browser.profileClone',
+      'endpoint.list',
+      'site.inspectHome',
+      'site.inspectNetwork',
+      'site.search',
+      'browser.sessionExport',
+      'browser.sessionImport',
+    ],
     browser: {
       acceptsCdpUrl: true,
       acceptsChromePath: true,
       acceptsUserDataDir: true,
+      acceptsChromeProfileDirectory: true,
+      acceptsAuthProfileSelection: true,
       supportsSharedUserDataDir: true,
+      supportsProfileConsistency: true,
+      supportsInteractionPacing: true,
+      supportsSessionImportExport: true,
+      supportsDedicatedManagedAuthProfiles: true,
+      supportsProfileClone: true,
     },
   }
 }
