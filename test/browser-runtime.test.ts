@@ -36,6 +36,22 @@ test('managed browser flow enables stealth defaults for owned launches', () => {
   assert.match(source, /--disable-blink-features=AutomationControlled/)
 })
 
+test('managed headless launch applies a dedicated consistency layer', () => {
+  assert.match(source, /const headlessFingerprint = options\.headless \? resolveHeadlessDesktopFingerprint\(options\.profile\) : undefined/)
+  assert.match(source, /\.\.\.\(headlessFingerprint !== undefined \? \{ defaultViewport: headlessFingerprint\.viewport \} : \{\}\)/)
+  assert.match(source, /await applyHeadlessDesktopFingerprint\(page, browser, headlessFingerprint\)/)
+  assert.match(source, /await applyBrowserProfile\(page, browser, options\.profile, options\.initialUrl, headlessFingerprint\)/)
+})
+
+test('headless consistency layer sanitizes user agent and patches screen metrics on new documents', () => {
+  assert.match(source, /sanitizeHeadlessUserAgent/)
+  assert.match(source, /await page\.evaluateOnNewDocument\(screenMetrics =>/)
+  assert.match(source, /Object\.defineProperty\(window\.screen, name, \{/)
+  assert.match(source, /Object\.defineProperty\(window\.screen, 'availLeft', \{/)
+  assert.match(source, /Object\.defineProperty\(window\.screen, 'availTop', \{/)
+  assert.match(source, /await browser\.setWindowBounds\(windowId, \{/)
+})
+
 test('browser runtime stores page-level interaction pacing from the resolved profile', () => {
   assert.match(source, /setPageInteractionProfile\(page, profile\?\.interaction\)/)
 })

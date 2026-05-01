@@ -3,6 +3,11 @@ import vanillaPuppeteer, { type Browser, type CookieData, type Page, type Viewpo
 import { addExtra, type VanillaPuppeteer } from 'puppeteer-extra'
 import StealthPlugin from 'puppeteer-extra-plugin-stealth'
 import type { BrowserProfileConfig } from '../site/siteAdapter.js'
+import {
+  resolveHeadlessDesktopFingerprint,
+  sanitizeHeadlessUserAgent,
+  type HeadlessDesktopFingerprint,
+} from './headlessFingerprint.js'
 import { setPageInteractionProfile } from '../ui/interactionProfile.js'
 import { RuntimeFailure } from '../../shared/errors/runtimeFailure.js'
 import { resolveDefaultBrowserUserDataDir } from '../../shared/runtime/appPaths.js'
@@ -90,6 +95,7 @@ async function connectToExistingBrowser(
 async function launchBrowser(options: BrowserRuntimeOptions): Promise<BrowserLease> {
   const executablePath = resolveChromeExecutablePath(options.executablePath)
   const userDataDir = options.userDataDir ?? defaultUserDataDir()
+  const headlessFingerprint = options.headless ? resolveHeadlessDesktopFingerprint(options.profile) : undefined
   await mkdir(userDataDir, { recursive: true })
 
   let browser: Browser
@@ -97,6 +103,7 @@ async function launchBrowser(options: BrowserRuntimeOptions): Promise<BrowserLea
     browser = await puppeteer.launch({
       userDataDir,
       headless: options.headless,
+      ...(headlessFingerprint !== undefined ? { defaultViewport: headlessFingerprint.viewport } : {}),
       protocolTimeout: options.timeoutMs,
       ignoreDefaultArgs: ['--enable-automation'],
       args: [
@@ -117,7 +124,8 @@ async function launchBrowser(options: BrowserRuntimeOptions): Promise<BrowserLea
   }
 
   const page = await acquirePage(browser)
-  await applyBrowserProfile(page, browser, options.profile, options.initialUrl)
+  await applyHeadlessDesktopFingerprint(page, browser, headlessFingerprint)
+  await applyBrowserProfile(page, browser, options.profile, options.initialUrl, headlessFingerprint)
   return {
     browser,
     page,
@@ -209,8 +217,13 @@ async function applyBrowserProfile(
   browser: Browser,
   profile: BrowserProfileConfig | undefined,
   initialUrl: string | undefined,
+  headlessFingerprint?: HeadlessDesktopFingerprint | undefined,
 ): Promise<void> {
   setPageInteractionProfile(page, profile?.interaction)
+
+  if (headlessFingerprint !== undefined) {
+    await applyHeadlessNavigatorFingerprint(page, profile?.userAgent)
+  }
 
   if (profile === undefined) {
     return
@@ -221,7 +234,9 @@ async function applyBrowserProfile(
   }
 
   if (profile.userAgent !== undefined) {
-    await page.setUserAgent({ userAgent: profile.userAgent })
+    await page.setUserAgent({
+      userAgent: headlessFingerprint !== undefined ? sanitizeHeadlessUserAgent(profile.userAgent) : profile.userAgent,
+    })
   }
 
   if (profile.viewport !== undefined) {
@@ -256,6 +271,50 @@ async function applyBrowserProfile(
       ...(profile.geolocation.accuracy !== undefined ? { accuracy: profile.geolocation.accuracy } : {}),
     })
   }
+}
+
+async function applyHeadlessDesktopFingerprint(
+  page: Page,
+  browser: Browser,
+  headlessFingerprint: HeadlessDesktopFingerprint | undefined,
+): Promise<void> {
+  if (headlessFingerprint === undefined) {
+    return
+  }
+
+  const windowId = await page.windowId()
+  await browser.setWindowBounds(windowId, {
+    width: headlessFingerprint.windowBounds.width,
+    height: headlessFingerprint.windowBounds.height,
+  })
+  await page.evaluateOnNewDocument(screenMetrics => {
+    const define = <K extends keyof Screen>(name: K, value: Screen[K]) => {
+      Object.defineProperty(window.screen, name, {
+        configurable: true,
+        get: () => value,
+      })
+    }
+
+    define('width', screenMetrics.width)
+    define('height', screenMetrics.height)
+    define('availWidth', screenMetrics.availWidth)
+    define('availHeight', screenMetrics.availHeight)
+    define('colorDepth', screenMetrics.colorDepth)
+    define('pixelDepth', screenMetrics.pixelDepth)
+    Object.defineProperty(window.screen, 'availLeft', {
+      configurable: true,
+      get: () => screenMetrics.availLeft,
+    })
+    Object.defineProperty(window.screen, 'availTop', {
+      configurable: true,
+      get: () => screenMetrics.availTop,
+    })
+  }, headlessFingerprint.screen)
+}
+
+async function applyHeadlessNavigatorFingerprint(page: Page, userAgent?: string | undefined): Promise<void> {
+  const resolvedUserAgent = sanitizeHeadlessUserAgent(userAgent ?? (await page.browser().userAgent()))
+  await page.setUserAgent({ userAgent: resolvedUserAgent })
 }
 
 function toViewport(viewport: NonNullable<BrowserProfileConfig['viewport']>): Viewport {
