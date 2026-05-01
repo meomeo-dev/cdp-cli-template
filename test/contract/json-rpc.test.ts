@@ -42,6 +42,9 @@ test('system.describe returns JSON-RPC result with registry details', async () =
   assert.equal(readProperty(response, 'result.browser.supportsSessionImportExport'), true)
   assert.equal(readProperty(response, 'result.browser.supportsDedicatedManagedAuthProfiles'), true)
   assert.equal(readProperty(response, 'result.browser.supportsProfileClone'), true)
+  assert.equal(readProperty(response, 'result.browser.acceptsManagedSession'), true)
+  assert.equal(readProperty(response, 'result.browser.supportsManagedSessionList'), true)
+  assert.equal(readProperty(response, 'result.browser.supportsManagedSessionStop'), true)
 })
 
 test('site.list returns auth-aware site registry', async () => {
@@ -96,6 +99,23 @@ test('system.describe advertises endpoint observation surfaces', async () => {
     (readProperty(response, 'result.rpcMethods') as string[]).includes('browser.authLogin'),
     true,
   )
+  assert.equal(
+    (readProperty(response, 'result.commands') as string[]).includes('browser list'),
+    true,
+  )
+  assert.equal(
+    (readProperty(response, 'result.rpcMethods') as string[]).includes('browser.sessionStop'),
+    true,
+  )
+})
+
+test('browser.sessionList returns registered managed browser sessions', async () => {
+  const response = await handleJsonRpcLine(
+    options,
+    JSON.stringify({ jsonrpc: '2.0', id: 6, method: 'browser.sessionList' }),
+  )
+
+  assert.equal(Array.isArray(readProperty(response, 'result.sessions')), true)
 })
 
 test('unknown method preserves request id in JSON-RPC error', async () => {

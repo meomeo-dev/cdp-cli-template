@@ -82,6 +82,9 @@ site-cdp sites
 site-cdp workflows
 site-cdp auth login --site docs-example
 site-cdp auth logout --site docs-example
+site-cdp --session qa-main inspect-home --headless
+site-cdp browser list
+site-cdp browser stop qa-main
 site-cdp profile show --site docs-example
 site-cdp profile clone "/Users/me/Library/Application Support/Google/Chrome" --site docs-example --source-profile-directory "Profile 4"
 site-cdp endpoints
@@ -97,6 +100,7 @@ site-cdp rpc
 Common browser options:
 
 - `--cdp-url <url>` attaches to a running Chrome and never owns its lifecycle.
+- `--session <slug>` uses or creates a named persistent local Chrome instance; it cannot be combined with `--cdp-url`.
 - `--chrome-path <path>` selects Chrome/Chromium when launching; if omitted, the runtime checks `CHROME_PATH` and common OS install paths.
 - `--user-data-dir <path>` isolates browser state for launched sessions.
 - `--chrome-profile-directory <name>` selects the Chrome profile directory inside the chosen user-data-dir, e.g. `Default` or `Profile 4`.
@@ -115,6 +119,14 @@ Common browser options:
 - `--interaction-press-delay-ms <ms>` delays keyup during `press` actions.
 - `--headless` launches in headless mode when not attaching.
 - `--timeout-ms <ms>` controls browser operation timeout.
+
+Managed browser sessions:
+
+- Without `--session`, commands keep the current one-shot lifecycle: launch or attach, run the command, then close or disconnect.
+- With `--session <slug>`, the CLI isolates Chrome under `~/.cdp-cli-template/browser-sessions/<slug>/chrome-profile` by default, reuses the live CDP endpoint when possible, and leaves Chrome running after the command finishes.
+- `site-cdp browser list` shows registered managed sessions with `running` or `stale` status, PID, CDP URL, profile path, headless flag, and timestamps.
+- `site-cdp browser stop <slug>` stops only the Chrome process recorded for that managed session and removes stale state if the process is already gone.
+- `--user-data-dir` and `--chrome-profile-directory` can override the default session profile on first launch; later commands reuse the registered browser until it is stopped.
 
 Stealth notes:
 

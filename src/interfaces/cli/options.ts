@@ -1,11 +1,13 @@
 import { RuntimeFailure } from '../../shared/errors/runtimeFailure.js'
 import { parsePositiveInteger } from '../../shared/runtime/timeout.js'
+import { isValidBrowserSessionId } from '../../infrastructure/browser/browserSessionRegistry.js'
 import type { BrowserRuntimeOptions } from '../../infrastructure/browser/browserRuntime.js'
 import type { BrowserInteractionConfig, BrowserProfileConfig } from '../../infrastructure/site/siteAdapter.js'
 import type { OutputFormat } from './output.js'
 
 export type CommonCliOptions = {
   cdpUrl?: string | undefined
+  session?: string | undefined
   chromePath?: string | undefined
   userDataDir?: string | undefined
   chromeProfileDirectory?: string | undefined
@@ -28,8 +30,18 @@ export type CommonCliOptions = {
 }
 
 export function parseBrowserOptions(options: CommonCliOptions): BrowserRuntimeOptions {
+  const cdpUrl = emptyToUndefined(options.cdpUrl)
+  const sessionId = parseSessionId(options.session)
+  if (cdpUrl !== undefined && sessionId !== undefined) {
+    throw new RuntimeFailure('INVALID_ARGUMENT', '--session cannot be combined with --cdp-url.', {
+      cdpUrl,
+      sessionId,
+    })
+  }
+
   return {
-    cdpUrl: emptyToUndefined(options.cdpUrl),
+    cdpUrl,
+    sessionId,
     executablePath: emptyToUndefined(options.chromePath ?? process.env.CHROME_PATH),
     userDataDir: emptyToUndefined(options.userDataDir),
     chromeProfileDirectory: emptyToUndefined(options.chromeProfileDirectory),
@@ -60,6 +72,21 @@ function emptyToUndefined(value: string | undefined): string | undefined {
   }
 
   return value
+}
+
+function parseSessionId(value: string | undefined): string | undefined {
+  const normalized = emptyToUndefined(value)
+  if (normalized === undefined) {
+    return undefined
+  }
+
+  if (!isValidBrowserSessionId(normalized)) {
+    throw new RuntimeFailure('INVALID_ARGUMENT', `Invalid browser session id: ${normalized}`, {
+      expected: '1-64 characters: letters, numbers, dot, underscore, or dash; must start with a letter or number',
+    })
+  }
+
+  return normalized
 }
 
 function parseBrowserProfileOptions(options: CommonCliOptions): BrowserProfileConfig | undefined {

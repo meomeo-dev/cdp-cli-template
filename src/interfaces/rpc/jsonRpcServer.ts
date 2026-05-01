@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { showManagedProfile } from '../../application/usecases/profileManagement.js'
 import { resolveBrowserOptionsForSite } from '../../application/usecases/browserOptions.js'
 import { cloneAuthProfile, loginAuthProfile, logoutAuthProfile } from '../../application/usecases/authProfiles.js'
+import { listBrowserSessions, stopBrowserSession } from '../../application/usecases/browserSessions.js'
 import { describeSystem } from '../../application/usecases/describeSystem.js'
 import { inspectNetwork } from '../../application/usecases/inspectNetwork.js'
 import { listEndpoints } from '../../application/usecases/listEndpoints.js'
@@ -33,6 +34,11 @@ const searchParamsSchema = z.object({
 
 const sessionStateParamsSchema = z.object({
   path: z.string().min(1),
+})
+
+const sessionStopParamsSchema = z.object({
+  sessionId: z.string().min(1),
+  force: z.boolean().optional(),
 })
 
 const authProfileParamsSchema = z.object({
@@ -126,6 +132,15 @@ async function dispatch(
     case 'browser.authLogout': {
       const parsedParams = authProfileParamsSchema.parse(params ?? {})
       return logoutAuthProfile(options.registry, parsedParams)
+    }
+    case 'browser.sessionList':
+      return listBrowserSessions()
+    case 'browser.sessionStop': {
+      const parsedParams = sessionStopParamsSchema.parse(params)
+      return stopBrowserSession(parsedParams.sessionId, {
+        force: parsedParams.force,
+        timeoutMs: options.browserOptions.timeoutMs,
+      })
     }
     case 'browser.profileClone': {
       const parsedParams = profileCloneParamsSchema.parse(params)

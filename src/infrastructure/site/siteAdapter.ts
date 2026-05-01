@@ -95,7 +95,7 @@ export type InspectHomeResult = {
   title: string
   ready: boolean
   readySelector: string
-  mode: 'attached' | 'launched'
+  mode: 'attached' | 'launched' | 'session'
 }
 
 export type SearchResultItem = {
@@ -117,6 +117,6 @@ export type SearchResult = {
 
 export interface SiteAdapter {
   readonly config: SiteConfig
-  inspectHome(page: Page, mode: 'attached' | 'launched'): Promise<InspectHomeResult>
+  inspectHome(page: Page, mode: 'attached' | 'launched' | 'session'): Promise<InspectHomeResult>
   search(page: Page, query: string): Promise<SearchResult>
 }

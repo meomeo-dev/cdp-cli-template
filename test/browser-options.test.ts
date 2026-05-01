@@ -107,6 +107,73 @@ test('resolveBrowserOptionsForSite lets explicit auth profile override the site 
   assert.equal(options.chromeProfileDirectory, 'Profile 2')
 })
 
+test('resolveBrowserOptionsForSite keeps managed browser sessions isolated by slug', () => {
+  const registry = createSiteRegistry({
+    defaultSiteId: 'private',
+    authProfiles: [
+      { id: 'reviewer', label: 'Reviewer', userDataDir: '/tmp/reviewer-profile', profileDirectory: 'Profile 2' },
+    ],
+    sites: [
+      {
+        id: 'private',
+        name: 'Private',
+        baseUrl: 'https://example.com/private',
+        selectors: { ready: 'body' },
+        auth: { mode: 'required', profileId: 'reviewer' },
+        roles: ['primary'],
+      },
+    ],
+    workflows: [],
+  })
+
+  const options = resolveBrowserOptionsForSite(
+    registry,
+    {
+      sessionId: 'qa-main',
+      headless: true,
+      timeoutMs: 1000,
+    },
+    'private',
+  )
+
+  assert.equal(options.sessionId, 'qa-main')
+  assert.equal(options.userDataDir, undefined)
+  assert.equal(options.chromeProfileDirectory, undefined)
+})
+
+test('resolveBrowserOptionsForSite lets explicit user data dir override managed browser session isolation', () => {
+  const registry = createSiteRegistry({
+    defaultSiteId: 'private',
+    authProfiles: [
+      { id: 'reviewer', label: 'Reviewer', userDataDir: '/tmp/reviewer-profile' },
+    ],
+    sites: [
+      {
+        id: 'private',
+        name: 'Private',
+        baseUrl: 'https://example.com/private',
+        selectors: { ready: 'body' },
+        auth: { mode: 'required', profileId: 'reviewer' },
+        roles: ['primary'],
+      },
+    ],
+    workflows: [],
+  })
+
+  const options = resolveBrowserOptionsForSite(
+    registry,
+    {
+      sessionId: 'qa-main',
+      userDataDir: '/tmp/explicit-session-profile',
+      headless: true,
+      timeoutMs: 1000,
+    },
+    'private',
+  )
+
+  assert.equal(options.userDataDir, '/tmp/explicit-session-profile')
+})
+
 test('resolveBrowserOptionsForSite prefers remembered managed auth state over static auth profile paths', () => {
   const root = mkdtempSync(join(tmpdir(), 'cdp-cli-template-browser-options-'))
   const previousHome = process.env.HOME

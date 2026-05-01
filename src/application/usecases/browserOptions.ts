@@ -23,14 +23,14 @@ export function resolveBrowserOptionsForSite(
     authProfileId: profileId,
     userDataDir:
       browserOptions.userDataDir ??
-      managedState?.chromeUserDataDir ??
-      authProfile.userDataDir ??
-      managedPaths.chromeUserDataDir,
+      (browserOptions.sessionId === undefined
+        ? managedState?.chromeUserDataDir ?? authProfile.userDataDir ?? managedPaths.chromeUserDataDir
+        : undefined),
     chromeProfileDirectory:
       browserOptions.chromeProfileDirectory ??
-      managedState?.chromeProfileDirectory ??
-      authProfile.profileDirectory ??
-      DEFAULT_CHROME_PROFILE_DIRECTORY,
+      (browserOptions.sessionId === undefined
+        ? managedState?.chromeProfileDirectory ?? authProfile.profileDirectory ?? DEFAULT_CHROME_PROFILE_DIRECTORY
+        : undefined),
     profile: mergeBrowserProfiles(authProfile.profile, browserOptions.profile),
   }
 }

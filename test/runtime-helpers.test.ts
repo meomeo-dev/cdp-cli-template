@@ -7,6 +7,7 @@ import {
   resolveAppHomeDir,
   resolveDefaultBrowserUserDataDir,
   resolveManagedAuthProfilePaths,
+  resolveManagedBrowserSessionPaths,
 } from '../src/shared/runtime/appPaths.js'
 import { resolveChromeExecutablePath } from '../src/shared/runtime/chromeExecutable.js'
 import { findNearestPackageRoot } from '../src/shared/runtime/projectRoot.js'
@@ -57,6 +58,28 @@ test('resolveManagedAuthProfilePaths isolates auth profiles under app auth root'
   assert.equal(paths.chromeUserDataDir, '/Users/tester/.cdp-cli-template/auth/v2ex-main/chrome-profile')
   assert.equal(paths.chromeProfileDirectory, 'Default')
   assert.equal(paths.stateFile, '/Users/tester/.cdp-cli-template/auth/v2ex-main/auth-state.json')
+})
+
+test('resolveManagedBrowserSessionPaths isolates browser sessions by slug', () => {
+  const env = {
+    HOME: '/Users/tester',
+  } as NodeJS.ProcessEnv
+
+  const paths = resolveManagedBrowserSessionPaths('qa-main', env, 'cdp-cli-template')
+  assert.equal(paths.sessionRootDir, '/Users/tester/.cdp-cli-template/browser-sessions')
+  assert.equal(paths.sessionDir, '/Users/tester/.cdp-cli-template/browser-sessions/qa-main')
+  assert.equal(paths.chromeUserDataDir, '/Users/tester/.cdp-cli-template/browser-sessions/qa-main/chrome-profile')
+  assert.equal(paths.chromeProfileDirectory, 'Default')
+  assert.equal(paths.stateFile, '/Users/tester/.cdp-cli-template/browser-sessions/qa-main/browser-state.json')
+})
+
+test('resolveManagedBrowserSessionPaths sanitizes unsafe path characters', () => {
+  const env = {
+    HOME: '/Users/tester',
+  } as NodeJS.ProcessEnv
+
+  const paths = resolveManagedBrowserSessionPaths('../qa main', env, 'cdp-cli-template')
+  assert.equal(paths.sessionDir, '/Users/tester/.cdp-cli-template/browser-sessions/qa-main')
 })
 
 test('isPathInside works for POSIX and Windows-style paths', () => {

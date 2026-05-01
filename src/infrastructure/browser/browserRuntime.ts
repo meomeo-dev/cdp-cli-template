@@ -1,4 +1,6 @@
+import { spawn } from 'node:child_process'
 import { mkdir } from 'node:fs/promises'
+import type { ChildProcess } from 'node:child_process'
 import vanillaPuppeteer, { type Browser, type CookieData, type Page, type Viewport } from 'puppeteer-core'
 import { addExtra, type VanillaPuppeteer } from 'puppeteer-extra'
 import StealthPlugin from 'puppeteer-extra-plugin-stealth'
@@ -10,14 +12,31 @@ import {
 } from './headlessFingerprint.js'
 import { setPageInteractionProfile } from '../ui/interactionProfile.js'
 import { RuntimeFailure } from '../../shared/errors/runtimeFailure.js'
-import { resolveDefaultBrowserUserDataDir } from '../../shared/runtime/appPaths.js'
+import {
+  DEFAULT_CHROME_PROFILE_DIRECTORY,
+  resolveDefaultBrowserUserDataDir,
+  resolveManagedBrowserSessionPaths,
+} from '../../shared/runtime/appPaths.js'
 import { resolveChromeExecutablePath } from '../../shared/runtime/chromeExecutable.js'
+import {
+  allocateLocalPort,
+  assertValidBrowserSessionId,
+  isCdpReachable,
+  isPidAlive,
+  MANAGED_BROWSER_SESSION_STATE_VERSION,
+  readManagedBrowserSessionState,
+  removeManagedBrowserSessionState,
+  stopRecordedManagedBrowserProcess,
+  writeManagedBrowserSessionState,
+  type ManagedBrowserSessionState,
+} from './browserSessionRegistry.js'
 
 const puppeteer = addExtra(createPuppeteerExtraAdapter())
 puppeteer.use(StealthPlugin())
 
 export type BrowserRuntimeOptions = {
   cdpUrl?: string | undefined
+  sessionId?: string | undefined
   executablePath?: string | undefined
   userDataDir?: string | undefined
   chromeProfileDirectory?: string | undefined
@@ -32,7 +51,7 @@ export type BrowserLease = {
   browser: Browser
   page: Page
   close: () => Promise<void>
-  mode: 'attached' | 'launched'
+  mode: 'attached' | 'launched' | 'session'
 }
 
 export type BrowserSessionSnapshot = {
@@ -60,6 +79,10 @@ async function openBrowserPage(options: BrowserRuntimeOptions): Promise<BrowserL
     return connectToExistingBrowser(options.cdpUrl, options.timeoutMs, options.profile, options.initialUrl)
   }
 
+  if (options.sessionId !== undefined) {
+    return connectOrLaunchManagedBrowserSession(options)
+  }
+
   return launchBrowser(options)
 }
 
@@ -68,6 +91,7 @@ async function connectToExistingBrowser(
   timeoutMs: number,
   profile: BrowserProfileConfig | undefined,
   initialUrl: string | undefined,
+  headlessFingerprint?: HeadlessDesktopFingerprint | undefined,
 ): Promise<BrowserLease> {
   let browser: Browser
   try {
@@ -80,7 +104,8 @@ async function connectToExistingBrowser(
   }
 
   const page = await browser.newPage()
-  await applyBrowserProfile(page, browser, profile, initialUrl)
+  await applyHeadlessDesktopFingerprint(page, browser, headlessFingerprint)
+  await applyBrowserProfile(page, browser, profile, initialUrl, headlessFingerprint)
   return {
     browser,
     page,
@@ -93,15 +118,219 @@ async function connectToExistingBrowser(
 }
 
 async function launchBrowser(options: BrowserRuntimeOptions): Promise<BrowserLease> {
-  const executablePath = resolveChromeExecutablePath(options.executablePath)
   const userDataDir = options.userDataDir ?? defaultUserDataDir()
+  return launchBrowserWithLifecycle(options, {
+    userDataDir,
+    chromeProfileDirectory: options.chromeProfileDirectory,
+  })
+}
+
+async function connectOrLaunchManagedBrowserSession(options: BrowserRuntimeOptions): Promise<BrowserLease> {
+  const sessionId = options.sessionId
+  if (sessionId === undefined) {
+    throw new RuntimeFailure('INVALID_ARGUMENT', 'Browser session id is required.')
+  }
+  assertValidBrowserSessionId(sessionId)
+
+  const existingState = await readManagedBrowserSessionState(sessionId)
+  if (
+    existingState !== undefined &&
+    isPidAlive(existingState.pid) &&
+    await isCdpReachable(existingState.cdpUrl, Math.min(options.timeoutMs, 3_000))
+  ) {
+    assertManagedBrowserSessionLaunchMode(existingState, options.headless)
+    const headlessFingerprint = existingState.headless ? resolveHeadlessDesktopFingerprint(options.profile) : undefined
+    const lease = await connectToExistingBrowser(
+      existingState.cdpUrl,
+      options.timeoutMs,
+      options.profile,
+      options.initialUrl,
+      headlessFingerprint,
+    )
+    await writeManagedBrowserSessionState({
+      ...existingState,
+      updatedAt: new Date().toISOString(),
+    })
+    return {
+      ...lease,
+      mode: 'session',
+    }
+  }
+
+  if (existingState !== undefined) {
+    if (isPidAlive(existingState.pid)) {
+      await stopRecordedManagedBrowserProcess(existingState)
+    }
+    await removeManagedBrowserSessionState(sessionId)
+  }
+
+  return launchManagedBrowserSession(options)
+}
+
+function assertManagedBrowserSessionLaunchMode(
+  state: ManagedBrowserSessionState,
+  requestedHeadless: boolean,
+): void {
+  if (state.headless === requestedHeadless) {
+    return
+  }
+
+  throw new RuntimeFailure(
+    'CHROME_SESSION_FAILED',
+    `Chrome session "${state.sessionId}" is already running in ${state.headless ? 'headless' : 'headed'} mode.`,
+    {
+      sessionId: state.sessionId,
+      runningMode: state.headless ? 'headless' : 'headed',
+      requestedMode: requestedHeadless ? 'headless' : 'headed',
+      pid: state.pid,
+      cdpUrl: state.cdpUrl,
+    },
+  )
+}
+
+async function launchManagedBrowserSession(options: BrowserRuntimeOptions): Promise<BrowserLease> {
+  const sessionId = options.sessionId
+  if (sessionId === undefined) {
+    throw new RuntimeFailure('INVALID_ARGUMENT', 'Browser session id is required.')
+  }
+  const sessionPaths = resolveManagedBrowserSessionPaths(sessionId)
+  const debuggingPort = await allocateLocalPort()
+  const userDataDir = options.userDataDir ?? sessionPaths.chromeUserDataDir
+  const chromeProfileDirectory =
+    options.chromeProfileDirectory ?? sessionPaths.chromeProfileDirectory ?? DEFAULT_CHROME_PROFILE_DIRECTORY
+  const { pid, cdpUrl } = await spawnManagedChromeSession(options, {
+    userDataDir,
+    chromeProfileDirectory,
+    debuggingPort,
+  })
   const headlessFingerprint = options.headless ? resolveHeadlessDesktopFingerprint(options.profile) : undefined
-  await mkdir(userDataDir, { recursive: true })
+  const lease = await connectToExistingBrowser(
+    cdpUrl,
+    options.timeoutMs,
+    options.profile,
+    options.initialUrl,
+    headlessFingerprint,
+  )
+  if (pid === undefined) {
+    await lease.browser.disconnect()
+    throw new RuntimeFailure('BROWSER_CONNECT_FAILED', 'Managed browser session did not expose a process id.', {
+      sessionId,
+    })
+  }
+
+  const now = new Date().toISOString()
+  const state: ManagedBrowserSessionState = {
+    version: MANAGED_BROWSER_SESSION_STATE_VERSION,
+    sessionId,
+    pid,
+    cdpUrl,
+    userDataDir,
+    chromeProfileDirectory,
+    headless: options.headless,
+    startedAt: now,
+    updatedAt: now,
+  }
+  try {
+    await writeManagedBrowserSessionState(state)
+  } catch (error) {
+    await closeManagedBrowserAfterFailedRegistration(lease.browser, pid)
+    throw new RuntimeFailure('BROWSER_CONNECT_FAILED', 'Failed to register managed browser session state.', {
+      sessionId,
+      pid,
+      cdpUrl,
+      cause: error instanceof Error ? error.message : String(error),
+    })
+  }
+
+  return {
+    ...lease,
+    mode: 'session',
+  }
+}
+
+async function spawnManagedChromeSession(
+  options: BrowserRuntimeOptions,
+  launchConfig: {
+    userDataDir: string
+    chromeProfileDirectory: string
+    debuggingPort: number
+  },
+): Promise<{ pid: number | undefined; cdpUrl: string }> {
+  const executablePath = resolveChromeExecutablePath(options.executablePath)
+  if (executablePath === undefined) {
+    throw new RuntimeFailure('BROWSER_CONNECT_FAILED', 'Failed to launch browser', {
+      executablePath: '<not-found: set --chrome-path or CHROME_PATH>',
+      userDataDir: launchConfig.userDataDir,
+    })
+  }
+
+  await mkdir(launchConfig.userDataDir, { recursive: true })
+  const headlessFingerprint = options.headless ? resolveHeadlessDesktopFingerprint(options.profile) : undefined
+  const cdpUrl = `http://127.0.0.1:${launchConfig.debuggingPort}`
+  const child = spawn(executablePath, [
+    `--remote-debugging-port=${launchConfig.debuggingPort}`,
+    `--user-data-dir=${launchConfig.userDataDir}`,
+    '--no-first-run',
+    '--no-default-browser-check',
+    '--disable-blink-features=AutomationControlled',
+    ...(options.headless ? ['--headless=new'] : []),
+    ...(headlessFingerprint !== undefined
+      ? [`--window-size=${headlessFingerprint.windowBounds.width},${headlessFingerprint.windowBounds.height}`]
+      : []),
+    `--profile-directory=${launchConfig.chromeProfileDirectory}`,
+    ...(options.profile?.proxyServer !== undefined ? [`--proxy-server=${options.profile.proxyServer}`] : []),
+    'about:blank',
+  ], {
+    detached: true,
+    stdio: 'ignore',
+  })
+  child.unref()
+
+  try {
+    await waitForManagedChromeStartup(child, cdpUrl, options.timeoutMs)
+  } catch (error) {
+    if (child.pid !== undefined && isPidAlive(child.pid)) {
+      process.kill(child.pid, 'SIGTERM')
+    }
+    throw new RuntimeFailure('BROWSER_CONNECT_FAILED', 'Failed to launch managed browser session', {
+      executablePath,
+      userDataDir: launchConfig.userDataDir,
+      cdpUrl,
+      cause: error instanceof Error ? error.message : String(error),
+    })
+  }
+
+  return {
+    pid: child.pid,
+    cdpUrl,
+  }
+}
+
+async function closeManagedBrowserAfterFailedRegistration(browser: Browser, pid: number): Promise<void> {
+  try {
+    await browser.close()
+  } catch {
+    if (isPidAlive(pid)) {
+      process.kill(pid, 'SIGTERM')
+    }
+  }
+}
+
+async function launchBrowserWithLifecycle(
+  options: BrowserRuntimeOptions,
+  lifecycle: {
+    userDataDir: string
+    chromeProfileDirectory?: string | undefined
+  },
+): Promise<BrowserLease> {
+  const executablePath = resolveChromeExecutablePath(options.executablePath)
+  const headlessFingerprint = options.headless ? resolveHeadlessDesktopFingerprint(options.profile) : undefined
+  await mkdir(lifecycle.userDataDir, { recursive: true })
 
   let browser: Browser
   try {
     browser = await puppeteer.launch({
-      userDataDir,
+      userDataDir: lifecycle.userDataDir,
       headless: options.headless,
       ...(headlessFingerprint !== undefined ? { defaultViewport: headlessFingerprint.viewport } : {}),
       protocolTimeout: options.timeoutMs,
@@ -110,7 +339,7 @@ async function launchBrowser(options: BrowserRuntimeOptions): Promise<BrowserLea
         '--no-first-run',
         '--no-default-browser-check',
         '--disable-blink-features=AutomationControlled',
-        ...(options.chromeProfileDirectory !== undefined ? [`--profile-directory=${options.chromeProfileDirectory}`] : []),
+        ...(lifecycle.chromeProfileDirectory !== undefined ? [`--profile-directory=${lifecycle.chromeProfileDirectory}`] : []),
         ...(options.profile?.proxyServer !== undefined ? [`--proxy-server=${options.profile.proxyServer}`] : []),
       ],
       ...(executablePath !== undefined ? { executablePath } : {}),
@@ -118,7 +347,7 @@ async function launchBrowser(options: BrowserRuntimeOptions): Promise<BrowserLea
   } catch (error) {
     throw new RuntimeFailure('BROWSER_CONNECT_FAILED', 'Failed to launch browser', {
       executablePath: executablePath ?? '<not-found: set --chrome-path or CHROME_PATH>',
-      userDataDir,
+      userDataDir: lifecycle.userDataDir,
       cause: error instanceof Error ? error.message : String(error),
     })
   }
@@ -134,6 +363,34 @@ async function launchBrowser(options: BrowserRuntimeOptions): Promise<BrowserLea
       await browser.close()
     },
   }
+}
+
+async function waitForCdpEndpoint(cdpUrl: string, timeoutMs: number): Promise<void> {
+  const startedAt = Date.now()
+  while (Date.now() - startedAt < timeoutMs) {
+    if (await isCdpReachable(cdpUrl, 500)) {
+      return
+    }
+    await sleep(100)
+  }
+
+  throw new Error(`Timed out waiting for CDP endpoint ${cdpUrl}`)
+}
+
+async function waitForManagedChromeStartup(child: ChildProcess, cdpUrl: string, timeoutMs: number): Promise<void> {
+  await Promise.race([
+    waitForCdpEndpoint(cdpUrl, timeoutMs),
+    new Promise<never>((_, reject) => {
+      child.once('error', reject)
+      child.once('exit', (code, signal) => {
+        reject(new Error(`Chrome process exited before CDP became reachable: code=${code ?? 'null'} signal=${signal ?? 'null'}`))
+      })
+    }),
+  ])
+}
+
+async function sleep(ms: number): Promise<void> {
+  await new Promise(resolve => setTimeout(resolve, ms))
 }
 
 async function acquirePage(browser: Browser): Promise<Page> {

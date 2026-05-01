@@ -9,6 +9,7 @@ export type SystemDescription = {
   rpcMethods: string[]
   browser: {
     acceptsCdpUrl: boolean
+    acceptsManagedSession: boolean
     acceptsChromePath: boolean
     acceptsUserDataDir: boolean
     acceptsChromeProfileDirectory: boolean
@@ -19,6 +20,8 @@ export type SystemDescription = {
     supportsSessionImportExport: boolean
     supportsDedicatedManagedAuthProfiles: boolean
     supportsProfileClone: boolean
+    supportsManagedSessionList: boolean
+    supportsManagedSessionStop: boolean
   }
 }
 
@@ -38,6 +41,8 @@ export function describeSystem(
       'workflows',
       'auth login',
       'auth logout',
+      'browser list',
+      'browser stop',
       'profile show',
       'profile clone',
       'endpoints',
@@ -55,6 +60,8 @@ export function describeSystem(
       'browser.authProfileShow',
       'browser.authLogin',
       'browser.authLogout',
+      'browser.sessionList',
+      'browser.sessionStop',
       'browser.profileClone',
       'endpoint.list',
       'site.inspectHome',
@@ -65,6 +72,7 @@ export function describeSystem(
     ],
     browser: {
       acceptsCdpUrl: true,
+      acceptsManagedSession: true,
       acceptsChromePath: true,
       acceptsUserDataDir: true,
       acceptsChromeProfileDirectory: true,
@@ -75,6 +83,8 @@ export function describeSystem(
       supportsSessionImportExport: true,
       supportsDedicatedManagedAuthProfiles: true,
       supportsProfileClone: true,
+      supportsManagedSessionList: true,
+      supportsManagedSessionStop: true,
     },
   }
 }

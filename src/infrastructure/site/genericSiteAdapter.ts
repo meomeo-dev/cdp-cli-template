@@ -10,7 +10,7 @@ export class GenericSiteAdapter implements SiteAdapter {
     this.config = config
   }
 
-  async inspectHome(page: Page, mode: 'attached' | 'launched'): Promise<InspectHomeResult> {
+  async inspectHome(page: Page, mode: 'attached' | 'launched' | 'session'): Promise<InspectHomeResult> {
     await page.goto(this.config.baseUrl, { waitUntil: 'domcontentloaded' })
     await page.waitForSelector(this.config.selectors.ready, { visible: true })
 

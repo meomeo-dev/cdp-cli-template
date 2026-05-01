@@ -3,6 +3,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { Command } from 'commander'
 import { loginAuthProfile, logoutAuthProfile, cloneAuthProfile } from '../../application/usecases/authProfiles.js'
+import { listBrowserSessions, stopBrowserSession } from '../../application/usecases/browserSessions.js'
 import { describeSystem } from '../../application/usecases/describeSystem.js'
 import { resolveBrowserOptionsForDefaultSite, resolveBrowserOptionsForSite } from '../../application/usecases/browserOptions.js'
 import { inspectNetwork } from '../../application/usecases/inspectNetwork.js'
@@ -145,6 +146,33 @@ export function createProgram(metadata: PackageMetadata): Command {
       )
     })
 
+  const browser = program
+    .command('browser')
+    .description('Manage named local Chrome sessions started with --session.')
+
+  browser
+    .command('list')
+    .description('List registered managed Chrome sessions and liveness status.')
+    .option('--format <format>', 'Output format: json or text', 'json')
+    .action(async options => {
+      await runCliAction(options, async () => listBrowserSessions())
+    })
+
+  browser
+    .command('stop')
+    .description('Stop one registered managed Chrome session.')
+    .argument('<session>', 'Managed browser session id to stop')
+    .option('--force', 'Use SIGKILL if graceful shutdown is not available')
+    .option('--format <format>', 'Output format: json or text', 'json')
+    .action(async (session: string, options) => {
+      await runCliAction(options, async () =>
+        stopBrowserSession(session, {
+          force: options.force === true,
+          timeoutMs: parseBrowserOptions(program.optsWithGlobals()).timeoutMs,
+        }),
+      )
+    })
+
   program
     .command('endpoints')
     .description('List known endpoint metadata and evidence status.')
@@ -242,6 +270,7 @@ export function createProgram(metadata: PackageMetadata): Command {
 function addCommonOptions(program: Command): void {
   program
     .option('--cdp-url <url>', 'Attach to an existing Chrome CDP endpoint, e.g. http://127.0.0.1:9222')
+    .option('--session <slug>', 'Use or create a named persistent local Chrome session')
     .option('--chrome-path <path>', 'Chrome/Chromium executable path for launching a managed browser')
     .option('--user-data-dir <path>', 'User data directory for launched browser profile')
     .option('--chrome-profile-directory <name>', 'Chrome profile directory inside the chosen user-data-dir, e.g. Default or Profile 4')

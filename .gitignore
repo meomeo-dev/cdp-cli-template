@@ -9,6 +9,7 @@ coverage
 tmp
 artifacts
 .deepseek-cdp-cli
+.tasks
 *.log
 *.tgz
 *.zip

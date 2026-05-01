@@ -16,7 +16,7 @@ test('attached browser flow opens a temporary page instead of reusing caller pag
 
 test('attached browser flow applies browser profile settings to the temporary page', () => {
   assert.match(source, /connectToExistingBrowser\(options\.cdpUrl, options\.timeoutMs, options\.profile, options\.initialUrl\)/)
-  assert.match(source, /await applyBrowserProfile\(page, browser, profile, initialUrl\)/)
+  assert.match(source, /await applyBrowserProfile\(page, browser, profile, initialUrl, headlessFingerprint\)/)
 })
 
 test('managed browser flow may reuse the initial blank page it owns', () => {
@@ -26,6 +26,58 @@ test('managed browser flow may reuse the initial blank page it owns', () => {
   )
 
   assert.match(launchSection, /acquirePage\(browser\)/)
+})
+
+test('managed browser sessions reuse or launch a persistent Chrome by slug', () => {
+  assert.match(source, /connectOrLaunchManagedBrowserSession\(options\)/)
+  assert.match(source, /readManagedBrowserSessionState\(sessionId\)/)
+  assert.match(source, /isPidAlive\(existingState\.pid\)/)
+  assert.match(source, /isCdpReachable\(existingState\.cdpUrl/)
+  assert.match(source, /assertManagedBrowserSessionLaunchMode\(existingState, options\.headless\)/)
+  assert.match(source, /spawnManagedChromeSession\(options/)
+  assert.match(source, /writeManagedBrowserSessionState\(\{/)
+})
+
+test('managed browser sessions reject headed/headless reuse mismatches', () => {
+  assert.match(source, /function assertManagedBrowserSessionLaunchMode/)
+  assert.match(source, /CHROME_SESSION_FAILED/)
+  assert.match(source, /Chrome session "\$\{state\.sessionId\}" is already running in \$\{state\.headless \? 'headless' : 'headed'\} mode\./)
+  assert.match(source, /requestedMode: requestedHeadless \? 'headless' : 'headed'/)
+})
+
+test('managed browser sessions detach instead of closing Chrome after a command', () => {
+  const sessionLaunchSection = source.slice(
+    source.indexOf('async function launchManagedBrowserSession'),
+    source.indexOf('async function launchBrowserWithLifecycle'),
+  )
+
+  assert.match(sessionLaunchSection, /mode: 'session'/)
+  assert.doesNotMatch(sessionLaunchSection, /close: async/)
+  assert.match(source, /lease\.browser\.disconnect\(\)/)
+})
+
+test('managed browser sessions are spawned outside Puppeteer exit cleanup', () => {
+  assert.match(source, /spawn\(executablePath, \[/)
+  assert.match(source, /--remote-debugging-port=\$\{launchConfig\.debuggingPort\}/)
+  assert.match(source, /detached: true/)
+  assert.match(source, /child\.unref\(\)/)
+})
+
+test('managed browser sessions handle spawn and registration failures', () => {
+  assert.match(source, /waitForManagedChromeStartup\(child, cdpUrl, options\.timeoutMs\)/)
+  assert.match(source, /child\.once\('error', reject\)/)
+  assert.match(source, /child\.once\('exit', \(code, signal\) => \{/)
+  assert.match(source, /closeManagedBrowserAfterFailedRegistration\(lease\.browser, pid\)/)
+})
+
+test('managed browser sessions clean matching stale processes before replacement', () => {
+  const reuseSection = source.slice(
+    source.indexOf('async function connectOrLaunchManagedBrowserSession'),
+    source.indexOf('async function launchManagedBrowserSession'),
+  )
+
+  assert.match(reuseSection, /stopRecordedManagedBrowserProcess\(existingState\)/)
+  assert.match(reuseSection, /removeManagedBrowserSessionState\(sessionId\)/)
 })
 
 test('managed browser flow enables stealth defaults for owned launches', () => {

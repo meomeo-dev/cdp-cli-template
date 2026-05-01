@@ -6,6 +6,9 @@ import { findNearestPackageRoot } from './projectRoot.js'
 export const SITE_CDP_HOME_DIR_ENV = 'SITE_CDP_HOME_DIR'
 export const DEFAULT_CHROME_PROFILE_DIRECTORY = 'Default'
 export const DEFAULT_BROWSER_PROFILE_ROOT_NAME = 'browser-profile'
+export const DEFAULT_BROWSER_SESSION_ROOT_NAME = 'browser-sessions'
+export const DEFAULT_BROWSER_SESSION_STATE_FILE_NAME = 'browser-state.json'
+export const DEFAULT_BROWSER_SESSION_USER_DATA_DIR_NAME = 'chrome-profile'
 export const DEFAULT_AUTH_ROOT_NAME = 'auth'
 export const DEFAULT_AUTH_STATE_FILE_NAME = 'auth-state.json'
 export const DEFAULT_AUTH_CHROME_USER_DATA_DIR_NAME = 'chrome-profile'
@@ -13,6 +16,15 @@ export const DEFAULT_AUTH_CHROME_USER_DATA_DIR_NAME = 'chrome-profile'
 export type ManagedAuthProfilePaths = {
   appHomeDir: string
   authDir: string
+  chromeUserDataDir: string
+  chromeProfileDirectory: string
+  stateFile: string
+}
+
+export type ManagedBrowserSessionPaths = {
+  appHomeDir: string
+  sessionRootDir: string
+  sessionDir: string
   chromeUserDataDir: string
   chromeProfileDirectory: string
   stateFile: string
@@ -59,6 +71,25 @@ export function resolveManagedAuthProfilePaths(
   }
 }
 
+export function resolveManagedBrowserSessionPaths(
+  sessionId: string,
+  env: NodeJS.ProcessEnv = process.env,
+  packageName = readCurrentPackageName(),
+): ManagedBrowserSessionPaths {
+  const appHomeDir = resolveAppHomeDir(env, packageName)
+  const sessionRootDir = join(appHomeDir, DEFAULT_BROWSER_SESSION_ROOT_NAME)
+  const sessionDir = join(sessionRootDir, sanitizePathSegment(sessionId))
+  const chromeUserDataDir = join(sessionDir, DEFAULT_BROWSER_SESSION_USER_DATA_DIR_NAME)
+  return {
+    appHomeDir,
+    sessionRootDir,
+    sessionDir,
+    chromeUserDataDir,
+    chromeProfileDirectory: DEFAULT_CHROME_PROFILE_DIRECTORY,
+    stateFile: join(sessionDir, DEFAULT_BROWSER_SESSION_STATE_FILE_NAME),
+  }
+}
+
 export function isPathInside(parentPath: string, childPath: string): boolean {
   const pathApi = usesWindowsPathSyntax(parentPath) || usesWindowsPathSyntax(childPath) ? win32 : posix
   const normalizedParent = pathApi.resolve(parentPath)
@@ -71,7 +102,7 @@ export function isPathInside(parentPath: string, childPath: string): boolean {
 }
 
 export function sanitizePathSegment(value: string): string {
-  return value.replace(/[^a-zA-Z0-9._-]/g, '-').replace(/^-+/, '').replace(/-+$/, '') || 'site-cdp'
+  return value.replace(/[^a-zA-Z0-9._-]/g, '-').replace(/^[^a-zA-Z0-9]+/, '').replace(/[^a-zA-Z0-9]+$/, '') || 'site-cdp'
 }
 
 function readCurrentPackageName(): string {

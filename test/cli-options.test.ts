@@ -45,6 +45,26 @@ test('parseBrowserOptions normalizes common CLI options', () => {
   assert.equal(options.profile?.interaction?.pressDelayMs, 20)
 })
 
+test('parseBrowserOptions accepts named managed browser sessions', () => {
+  const options = parseBrowserOptions({
+    session: 'qa-main.1',
+    timeoutMs: '1000',
+  })
+
+  assert.equal(options.sessionId, 'qa-main.1')
+})
+
+test('parseBrowserOptions rejects invalid or conflicting managed sessions', () => {
+  assert.throws(
+    () => parseBrowserOptions({ session: '../chrome', timeoutMs: '1000' }),
+    /Invalid browser session id/,
+  )
+  assert.throws(
+    () => parseBrowserOptions({ cdpUrl: 'http://127.0.0.1:9222', session: 'qa-main', timeoutMs: '1000' }),
+    /cannot be combined/,
+  )
+})
+
 test('parseBrowserOptions rejects malformed profile values', () => {
   assert.throws(() => parseBrowserOptions({ viewport: 'bad', timeoutMs: '1000' }), /viewport format/)
   assert.throws(() => parseBrowserOptions({ geolocation: '1,2,three', timeoutMs: '1000' }), /Invalid geolocation/)
