@@ -1,5 +1,4 @@
 import { spawn } from 'node:child_process'
-import { mkdir } from 'node:fs/promises'
 import type { ChildProcess } from 'node:child_process'
 import vanillaPuppeteer, { type Browser, type CookieData, type Page, type Viewport } from 'puppeteer-core'
 import { addExtra, type VanillaPuppeteer } from 'puppeteer-extra'
@@ -18,6 +17,7 @@ import {
   resolveManagedBrowserSessionPaths,
 } from '../../shared/runtime/appPaths.js'
 import { resolveChromeExecutablePath } from '../../shared/runtime/chromeExecutable.js'
+import { ensureOwnerOnlyDirectory } from '../../shared/runtime/profileSecurity.js'
 import {
   allocateLocalPort,
   assertValidBrowserSessionId,
@@ -264,7 +264,7 @@ async function spawnManagedChromeSession(
     })
   }
 
-  await mkdir(launchConfig.userDataDir, { recursive: true })
+  await ensureOwnerOnlyDirectory(launchConfig.userDataDir)
   const headlessFingerprint = options.headless ? resolveHeadlessDesktopFingerprint(options.profile) : undefined
   const cdpUrl = `http://127.0.0.1:${launchConfig.debuggingPort}`
   const child = spawn(executablePath, [
@@ -325,7 +325,7 @@ async function launchBrowserWithLifecycle(
 ): Promise<BrowserLease> {
   const executablePath = resolveChromeExecutablePath(options.executablePath)
   const headlessFingerprint = options.headless ? resolveHeadlessDesktopFingerprint(options.profile) : undefined
-  await mkdir(lifecycle.userDataDir, { recursive: true })
+  await ensureOwnerOnlyDirectory(lifecycle.userDataDir)
 
   let browser: Browser
   try {

@@ -1,5 +1,5 @@
 import { stat } from 'node:fs/promises'
-import { resolve } from 'node:path'
+import { join, resolve } from 'node:path'
 import type { SiteRegistry } from '../../infrastructure/site/siteRegistry.js'
 import type { SiteConfig } from '../../infrastructure/site/siteAdapter.js'
 import { RuntimeFailure } from '../../shared/errors/runtimeFailure.js'
@@ -42,6 +42,12 @@ export async function showManagedProfile(
   const chromeUserDataDir = state?.chromeUserDataDir ?? authProfile.userDataDir ?? paths.chromeUserDataDir
   const chromeProfileDirectory =
     state?.chromeProfileDirectory ?? authProfile.profileDirectory ?? DEFAULT_CHROME_PROFILE_DIRECTORY
+  const ready = await isAuthProfileReady({
+    hasManagedState: state !== undefined,
+    hasConfiguredUserDataDir: authProfile.userDataDir !== undefined,
+    chromeUserDataDir,
+    chromeProfileDirectory,
+  })
 
   return {
     siteId: site.id,
@@ -50,7 +56,7 @@ export async function showManagedProfile(
     chromeUserDataDir,
     chromeProfileDirectory,
     stateFile: paths.stateFile,
-    ready: await pathExists(chromeUserDataDir),
+    ready,
     ...(state?.finalUrl !== undefined ? { finalUrl: state.finalUrl } : {}),
     ...(state?.loggedInAt !== undefined ? { loggedInAt: state.loggedInAt } : {}),
     ...(state?.clonedAt !== undefined ? { clonedAt: state.clonedAt } : {}),
@@ -95,4 +101,20 @@ async function pathExists(path: string): Promise<boolean> {
   } catch {
     return false
   }
+}
+
+async function isAuthProfileReady(input: {
+  hasManagedState: boolean
+  hasConfiguredUserDataDir: boolean
+  chromeUserDataDir: string
+  chromeProfileDirectory: string
+}): Promise<boolean> {
+  if (!input.hasManagedState && !input.hasConfiguredUserDataDir) {
+    return false
+  }
+
+  return (
+    await pathExists(input.chromeUserDataDir) &&
+    await pathExists(join(input.chromeUserDataDir, input.chromeProfileDirectory))
+  )
 }

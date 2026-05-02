@@ -1,6 +1,6 @@
 {
   "name": "cdp-cli-template",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Template for building approved-site browser QA CLI tools.",
   "type": "module",
   "private": true,

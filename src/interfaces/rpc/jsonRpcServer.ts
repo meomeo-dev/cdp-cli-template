@@ -152,14 +152,18 @@ async function dispatch(
       const parsedParams = inspectParamsSchema.parse(params ?? {})
       return inspectHome(
         options.registry.createAdapter(parsedParams.siteId),
-        resolveBrowserOptionsForSite(options.registry, options.browserOptions, parsedParams.siteId),
+        resolveBrowserOptionsForSite(options.registry, options.browserOptions, parsedParams.siteId, {
+          required: true,
+        }),
       )
     }
     case 'site.inspectNetwork': {
       const parsedParams = inspectParamsSchema.parse(params ?? {})
       return inspectNetwork(
         options.registry.createAdapter(parsedParams.siteId),
-        resolveBrowserOptionsForSite(options.registry, options.browserOptions, parsedParams.siteId),
+        resolveBrowserOptionsForSite(options.registry, options.browserOptions, parsedParams.siteId, {
+          required: true,
+        }),
         options.endpointCatalog,
       )
     }
@@ -167,7 +171,9 @@ async function dispatch(
       const parsedParams = searchParamsSchema.parse(params)
       return searchSite(
         options.registry.createAdapter(parsedParams.siteId),
-        resolveBrowserOptionsForSite(options.registry, options.browserOptions, parsedParams.siteId),
+        resolveBrowserOptionsForSite(options.registry, options.browserOptions, parsedParams.siteId, {
+          required: true,
+        }),
         parsedParams.query,
       )
     }

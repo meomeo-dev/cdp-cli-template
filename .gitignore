@@ -9,6 +9,11 @@ coverage
 tmp
 artifacts
 .deepseek-cdp-cli
+.site-cdp
+.cdp-cli
+browser-profile
+browser-sessions
+auth
 .tasks
 *.log
 *.tgz

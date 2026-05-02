@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, rm, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { spawn } from 'node:child_process'
@@ -13,6 +13,7 @@ import {
   writeManagedBrowserSessionState,
 } from '../src/infrastructure/browser/browserSessionRegistry.js'
 import { SITE_CDP_HOME_DIR_ENV } from '../src/shared/runtime/appPaths.js'
+import { OWNER_ONLY_DIRECTORY_MODE } from '../src/shared/runtime/profileSecurity.js'
 
 test('managed browser session state round-trips under app home', async () => {
   await withTempAppHome(async appHome => {
@@ -37,6 +38,30 @@ test('managed browser session state round-trips under app home', async () => {
     assert.equal(list[0]?.sessionId, 'qa-main')
     assert.equal(list[0]?.status, 'stale')
     assert.equal(list[0]?.cdpReachable, false)
+  })
+})
+
+test('managed browser session registry hardens session state directories', async t => {
+  if (process.platform === 'win32') {
+    t.skip('POSIX mode hardening is not available on Windows')
+    return
+  }
+
+  await withTempAppHome(async appHome => {
+    await writeManagedBrowserSessionState({
+      version: MANAGED_BROWSER_SESSION_STATE_VERSION,
+      sessionId: 'qa-main',
+      pid: 9_999_999,
+      cdpUrl: 'http://127.0.0.1:49999',
+      userDataDir: join(appHome, 'browser-sessions', 'qa-main', 'chrome-profile'),
+      headless: true,
+      startedAt: '2026-05-01T00:00:00.000Z',
+      updatedAt: '2026-05-01T00:00:00.000Z',
+    })
+
+    const sessionDir = join(appHome, 'browser-sessions', 'qa-main')
+    const info = await stat(sessionDir)
+    assert.equal(info.mode & 0o777, OWNER_ONLY_DIRECTORY_MODE)
   })
 })
 

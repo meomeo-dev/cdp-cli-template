@@ -36,10 +36,10 @@ npm run release:preflight
 node dist/src/cli.js describe
 ```
 
-Inspect the default example site:
+Inspect the default example site. Command-style browser interactions default to headless; pass `--headed` only when a human needs to see or complete the browser flow:
 
 ```sh
-npm run dev -- --headless inspect-home --format json
+npm run dev -- inspect-home --format json
 ```
 
 Connect to an existing Chrome instance:
@@ -71,7 +71,7 @@ SITE_BASE_URL="https://example.com/docs/" \
 SITE_READY_SELECTOR="body" \
 SITE_SEARCH_INPUT_SELECTOR="input[name=query]" \
 SITE_RESULT_ITEMS_SELECTOR=".doc-card, article" \
-npm run dev -- --headless search "AI"
+npm run dev -- search "AI"
 ```
 
 ## Commands
@@ -82,16 +82,16 @@ site-cdp sites
 site-cdp workflows
 site-cdp auth login --site docs-example
 site-cdp auth logout --site docs-example
-site-cdp --session qa-main inspect-home --headless
+site-cdp --session qa-main inspect-home
 site-cdp browser list
 site-cdp browser stop qa-main
 site-cdp profile show --site docs-example
 site-cdp profile clone "/Users/me/Library/Application Support/Google/Chrome" --site docs-example --source-profile-directory "Profile 4"
 site-cdp endpoints
-site-cdp inspect-home --headless
-site-cdp inspect-home --site docs-example --headless
-site-cdp inspect-network --site docs-example --headless
-site-cdp search "query" --site docs-example --headless
+site-cdp inspect-home
+site-cdp inspect-home --site docs-example
+site-cdp inspect-network --site docs-example
+site-cdp search "query" --site docs-example
 site-cdp session-export ./session.json
 site-cdp session-import ./session.json
 site-cdp rpc
@@ -117,16 +117,23 @@ Common browser options:
 - `--interaction-click-delay-ms <ms>` delays click completion for local pointer actions.
 - `--interaction-type-delay-ms <ms>` delays between typed characters.
 - `--interaction-press-delay-ms <ms>` delays keyup during `press` actions.
-- `--headless` launches in headless mode when not attaching.
+- Browser commands launch headless by default when not attaching; `auth login` always launches headed because a human may need to complete login.
+- `--headed` launches a visible Chrome window for command flows that need human inspection.
+- `--headless` is accepted for explicitness and conflicts with `--headed`.
 - `--timeout-ms <ms>` controls browser operation timeout.
 
 Managed browser sessions:
 
 - Without `--session`, commands keep the current one-shot lifecycle: launch or attach, run the command, then close or disconnect.
-- With `--session <slug>`, the CLI isolates Chrome under `~/.cdp-cli-template/browser-sessions/<slug>/chrome-profile` by default, reuses the live CDP endpoint when possible, and leaves Chrome running after the command finishes.
+- With `--session <slug>`, the CLI isolates Chrome under `~/.cdp-cli/<package-name>/browser-sessions/<slug>/chrome-profile` by default, reuses the live CDP endpoint when possible, and leaves Chrome running after the command finishes.
 - `site-cdp browser list` shows registered managed sessions with `running` or `stale` status, PID, CDP URL, profile path, headless flag, and timestamps.
 - `site-cdp browser stop <slug>` stops only the Chrome process recorded for that managed session and removes stale state if the process is already gone.
 - `--user-data-dir` and `--chrome-profile-directory` can override the default session profile on first launch; later commands reuse the registered browser until it is stopped.
+
+Output format policy:
+
+- `--format json` is the implementation-first contract and the default while derived CLIs stabilize schemas.
+- `--format text` is the readable TUI projection for humans; build it after the JSON shape is stable.
 
 Stealth notes:
 
@@ -236,11 +243,13 @@ This complements `--user-data-dir`:
 
 This template now supports a dedicated local auth-profile pattern for approved multi-site automation:
 
-- the program creates its own profile root under the user home directory by default
-- each auth profile gets its own managed directory under `~/.<package-name>/auth/<profileId>/`
-- `auth login` opens that dedicated local profile and waits until the configured site login is reusable
+- the program creates its own profile root under `~/.cdp-cli/<package-name>/` by default, or under `SITE_CDP_HOME_DIR` when explicitly configured
+- each auth profile gets its own managed directory under `~/.cdp-cli/<package-name>/auth/<profileId>/`
+- managed auth and session directories are created with owner-only permissions on POSIX platforms
+- `auth login` opens that dedicated local profile in headed mode and waits until the configured site login is reusable
 - `auth logout` removes only that dedicated local auth profile
 - regular site commands can reuse the prepared profile automatically through `site.auth.profileId`
+- regular site commands fail early with `AUTH_PROFILE_NOT_READY` when `auth.mode` is `required` and the default managed login state is missing
 - `--site` and `--auth-profile` let one user manage multiple logged-in sites or accounts, such as Google plus V2EX main and V2EX global
 
 Examples:
@@ -264,6 +273,7 @@ For ordinary-user local Chrome setups, the template also supports a managed clon
 - `profile clone <sourceUserDataDir>` copies a local Chrome user-data-dir into one managed auth profile
 - `--source-profile-directory` selects `Default` or `Profile N` inside a multi-profile Chrome root
 - `profile show` prints the resolved managed auth paths and remembered state
+- derived CLIs should keep profile cloning minimal and auditable; do not broaden it into whole-profile copy semantics without a security review
 
 Example:
 
@@ -463,8 +473,12 @@ scripts/                        package/spec verification helpers
 
 - Treat selectors, semantic controls, and API endpoints as contracts, not incidental implementation details.
 - Separate browser runtime ownership from site actions.
+- Keep login flows headed and human-delegated; keep CLI-driven browsing, search, pagination, and content inspection headless by default.
+- Stabilize JSON result shapes before investing in readable `text`/TUI rendering.
 - Prefer typed errors over string matching.
 - Make every CLI action callable from RPC or another interface.
+- Check dependency age, maintenance, and security advisories during architecture and release work; prefer known-stable security releases over unreviewed day-zero upgrades unless a fresh fix is required.
+- Keep browser profile directories local, owner-only, ignored by git, and out of cloud sync/shared folders.
 - Test normalization and output shape without a browser.
 - Add live browser tests only around stable user-visible behavior.
 - Keep release tarballs ignored, then install and smoke test the tarball before publishing.

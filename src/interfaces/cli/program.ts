@@ -191,7 +191,9 @@ export function createProgram(metadata: PackageMetadata): Command {
         const adapter = registry.createAdapter(options.site)
         return inspectHome(
           adapter,
-          resolveBrowserOptionsForSite(registry, parseBrowserOptions(program.optsWithGlobals()), options.site),
+          resolveBrowserOptionsForSite(registry, parseBrowserOptions(program.optsWithGlobals()), options.site, {
+            required: true,
+          }),
         )
       })
     })
@@ -206,7 +208,9 @@ export function createProgram(metadata: PackageMetadata): Command {
         const adapter = registry.createAdapter(options.site)
         return inspectNetwork(
           adapter,
-          resolveBrowserOptionsForSite(registry, parseBrowserOptions(program.optsWithGlobals()), options.site),
+          resolveBrowserOptionsForSite(registry, parseBrowserOptions(program.optsWithGlobals()), options.site, {
+            required: true,
+          }),
           endpointCatalog,
         )
       })
@@ -223,7 +227,9 @@ export function createProgram(metadata: PackageMetadata): Command {
         const adapter = registry.createAdapter(options.site)
         return searchSite(
           adapter,
-          resolveBrowserOptionsForSite(registry, parseBrowserOptions(program.optsWithGlobals()), options.site),
+          resolveBrowserOptionsForSite(registry, parseBrowserOptions(program.optsWithGlobals()), options.site, {
+            required: true,
+          }),
           query,
         )
       })
@@ -287,7 +293,8 @@ function addCommonOptions(program: Command): void {
     .option('--interaction-click-delay-ms <ms>', 'Delay mouseup during click actions by the given milliseconds')
     .option('--interaction-type-delay-ms <ms>', 'Delay between typed characters by the given milliseconds')
     .option('--interaction-press-delay-ms <ms>', 'Delay between keydown and keyup for key press actions')
-    .option('--headless', 'Launch Chrome in headless mode when --cdp-url is not provided')
+    .option('--headed', 'Launch Chrome headed when --cdp-url is not provided')
+    .option('--headless', 'Launch Chrome headless when --cdp-url is not provided')
     .option('--timeout-ms <ms>', 'Browser operation timeout in milliseconds', '60000')
 }
 

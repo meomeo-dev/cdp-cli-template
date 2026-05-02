@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.0 - 2026-05-02
+
+- Add a CDP CLI template plan for UX mode, output format, lifecycle, login-state, and profile-hardening boundaries.
+- Default command-mode browser runs to headless while keeping `auth login` headed for human-delegated login.
+- Move default managed browser state under `~/.cdp-cli/<package-name>` with `SITE_CDP_HOME_DIR` override support.
+- Add owner-only directory hardening for managed auth profiles and browser sessions.
+- Fail early with `AUTH_PROFILE_NOT_READY` for login-required site commands when the managed auth profile is missing.
+- Tighten profile readiness checks and narrow managed profile cloning to `Local State` plus the selected Chrome profile directory.
+- Document downstream guardrails for readable TUI projection, dependency/security review, and profile handling.
+
 ## 0.3.0 - 2026-05-01
 
 - Switch managed browser launch to `puppeteer-extra` with `puppeteer-extra-plugin-stealth`.

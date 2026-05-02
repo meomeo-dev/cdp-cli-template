@@ -22,6 +22,10 @@ export type SystemDescription = {
     supportsProfileClone: boolean
     supportsManagedSessionList: boolean
     supportsManagedSessionStop: boolean
+    defaultsCommandRunsHeadless: boolean
+    checksRequiredAuthProfileReadiness: boolean
+    usesUnifiedProfileRoot: boolean
+    hardensManagedProfileDirectories: boolean
   }
 }
 
@@ -85,6 +89,10 @@ export function describeSystem(
       supportsProfileClone: true,
       supportsManagedSessionList: true,
       supportsManagedSessionStop: true,
+      defaultsCommandRunsHeadless: true,
+      checksRequiredAuthProfileReadiness: true,
+      usesUnifiedProfileRoot: true,
+      hardensManagedProfileDirectories: true,
     },
   }
 }

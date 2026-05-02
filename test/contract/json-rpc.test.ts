@@ -26,6 +26,30 @@ const options: JsonRpcServerOptions = {
   },
 }
 
+const requiredAuthOptions: JsonRpcServerOptions = {
+  ...options,
+  registry: createSiteRegistry({
+    defaultSiteId: 'private',
+    authProfiles: [
+      {
+        id: 'reviewer',
+        label: 'Reviewer',
+      },
+    ],
+    sites: [
+      {
+        id: 'private',
+        name: 'Private',
+        baseUrl: 'https://example.com/private',
+        selectors: { ready: 'body' },
+        auth: { mode: 'required', profileId: 'reviewer' },
+        roles: ['primary'],
+      },
+    ],
+    workflows: [],
+  }),
+}
+
 test('system.describe returns JSON-RPC result with registry details', async () => {
   const response = await handleJsonRpcLine(
     options,
@@ -45,6 +69,10 @@ test('system.describe returns JSON-RPC result with registry details', async () =
   assert.equal(readProperty(response, 'result.browser.acceptsManagedSession'), true)
   assert.equal(readProperty(response, 'result.browser.supportsManagedSessionList'), true)
   assert.equal(readProperty(response, 'result.browser.supportsManagedSessionStop'), true)
+  assert.equal(readProperty(response, 'result.browser.defaultsCommandRunsHeadless'), true)
+  assert.equal(readProperty(response, 'result.browser.checksRequiredAuthProfileReadiness'), true)
+  assert.equal(readProperty(response, 'result.browser.usesUnifiedProfileRoot'), true)
+  assert.equal(readProperty(response, 'result.browser.hardensManagedProfileDirectories'), true)
 })
 
 test('site.list returns auth-aware site registry', async () => {
@@ -116,6 +144,16 @@ test('browser.sessionList returns registered managed browser sessions', async ()
   )
 
   assert.equal(Array.isArray(readProperty(response, 'result.sessions')), true)
+})
+
+test('site RPC methods fail clearly when required auth profile is not ready', async () => {
+  const response = await handleJsonRpcLine(
+    requiredAuthOptions,
+    JSON.stringify({ jsonrpc: '2.0', id: 7, method: 'site.search', params: { query: 'hello' } }),
+  )
+
+  assert.equal(readProperty(response, 'error.data.code'), 'AUTH_PROFILE_NOT_READY')
+  assert.equal(readProperty(response, 'error.data.details.authProfileId'), 'reviewer')
 })
 
 test('unknown method preserves request id in JSON-RPC error', async () => {

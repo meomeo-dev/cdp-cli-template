@@ -26,4 +26,10 @@ test('CLI program exposes auth profile and chrome profile selection options', ()
   assert.match(source, /--session <slug>/)
   assert.match(source, /--chrome-profile-directory <name>/)
   assert.match(source, /--source-profile-directory <name>/)
+  assert.match(source, /--headed/)
+})
+
+test('CLI program checks required auth readiness for site interaction commands', () => {
+  assert.match(source, /required: true/)
+  assert.match(source, /resolveBrowserOptionsForSite\(registry, parseBrowserOptions\(program\.optsWithGlobals\(\)\), options\.site/)
 })

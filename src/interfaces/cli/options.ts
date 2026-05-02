@@ -24,6 +24,7 @@ export type CommonCliOptions = {
   interactionClickDelayMs?: string | undefined
   interactionTypeDelayMs?: string | undefined
   interactionPressDelayMs?: string | undefined
+  headed?: boolean | undefined
   headless?: boolean | undefined
   timeoutMs?: string | undefined
   format?: string | undefined
@@ -46,7 +47,7 @@ export function parseBrowserOptions(options: CommonCliOptions): BrowserRuntimeOp
     userDataDir: emptyToUndefined(options.userDataDir),
     chromeProfileDirectory: emptyToUndefined(options.chromeProfileDirectory),
     authProfileId: emptyToUndefined(options.authProfile),
-    headless: options.headless === true,
+    headless: parseHeadlessMode(options),
     timeoutMs: parsePositiveInteger(options.timeoutMs, 60_000),
     profile: parseBrowserProfileOptions(options),
   }
@@ -87,6 +88,14 @@ function parseSessionId(value: string | undefined): string | undefined {
   }
 
   return normalized
+}
+
+function parseHeadlessMode(options: CommonCliOptions): boolean {
+  if (options.headed === true && options.headless === true) {
+    throw new RuntimeFailure('INVALID_ARGUMENT', '--headed cannot be combined with --headless.')
+  }
+
+  return options.headed === true ? false : true
 }
 
 function parseBrowserProfileOptions(options: CommonCliOptions): BrowserProfileConfig | undefined {

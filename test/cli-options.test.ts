@@ -54,6 +54,23 @@ test('parseBrowserOptions accepts named managed browser sessions', () => {
   assert.equal(options.sessionId, 'qa-main.1')
 })
 
+test('parseBrowserOptions defaults command browser runs to headless', () => {
+  const options = parseBrowserOptions({
+    timeoutMs: '1000',
+  })
+
+  assert.equal(options.headless, true)
+})
+
+test('parseBrowserOptions supports explicit headed mode', () => {
+  const options = parseBrowserOptions({
+    headed: true,
+    timeoutMs: '1000',
+  })
+
+  assert.equal(options.headless, false)
+})
+
 test('parseBrowserOptions rejects invalid or conflicting managed sessions', () => {
   assert.throws(
     () => parseBrowserOptions({ session: '../chrome', timeoutMs: '1000' }),
@@ -61,6 +78,10 @@ test('parseBrowserOptions rejects invalid or conflicting managed sessions', () =
   )
   assert.throws(
     () => parseBrowserOptions({ cdpUrl: 'http://127.0.0.1:9222', session: 'qa-main', timeoutMs: '1000' }),
+    /cannot be combined/,
+  )
+  assert.throws(
+    () => parseBrowserOptions({ headed: true, headless: true, timeoutMs: '1000' }),
     /cannot be combined/,
   )
 })

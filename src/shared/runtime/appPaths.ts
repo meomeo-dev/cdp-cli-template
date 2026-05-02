@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { findNearestPackageRoot } from './projectRoot.js'
 
 export const SITE_CDP_HOME_DIR_ENV = 'SITE_CDP_HOME_DIR'
+export const DEFAULT_CDP_CLI_HOME_ROOT_NAME = '.cdp-cli'
 export const DEFAULT_CHROME_PROFILE_DIRECTORY = 'Default'
 export const DEFAULT_BROWSER_PROFILE_ROOT_NAME = 'browser-profile'
 export const DEFAULT_BROWSER_SESSION_ROOT_NAME = 'browser-sessions'
@@ -41,7 +42,7 @@ export function resolveAppHomeDir(
 
   const homeRoot = normalizeOptionalString(env.HOME ?? env.USERPROFILE)
   if (homeRoot !== undefined) {
-    return join(homeRoot, `.${sanitizePathSegment(packageName)}`)
+    return join(homeRoot, DEFAULT_CDP_CLI_HOME_ROOT_NAME, sanitizePathSegment(packageName))
   }
 
   return resolve(readCurrentPackageRoot(), '.site-cdp')

@@ -44,8 +44,8 @@ test('resolveAppHomeDir defaults to a package-scoped user home directory', () =>
     HOME: '/Users/tester',
   } as NodeJS.ProcessEnv
 
-  assert.equal(resolveAppHomeDir(env, 'cdp-cli-template'), '/Users/tester/.cdp-cli-template')
-  assert.equal(resolveDefaultBrowserUserDataDir(env, 'cdp-cli-template'), '/Users/tester/.cdp-cli-template/browser-profile')
+  assert.equal(resolveAppHomeDir(env, 'cdp-cli-template'), '/Users/tester/.cdp-cli/cdp-cli-template')
+  assert.equal(resolveDefaultBrowserUserDataDir(env, 'cdp-cli-template'), '/Users/tester/.cdp-cli/cdp-cli-template/browser-profile')
 })
 
 test('resolveManagedAuthProfilePaths isolates auth profiles under app auth root', () => {
@@ -54,10 +54,10 @@ test('resolveManagedAuthProfilePaths isolates auth profiles under app auth root'
   } as NodeJS.ProcessEnv
 
   const paths = resolveManagedAuthProfilePaths('v2ex-main', env, 'cdp-cli-template')
-  assert.equal(paths.authDir, '/Users/tester/.cdp-cli-template/auth/v2ex-main')
-  assert.equal(paths.chromeUserDataDir, '/Users/tester/.cdp-cli-template/auth/v2ex-main/chrome-profile')
+  assert.equal(paths.authDir, '/Users/tester/.cdp-cli/cdp-cli-template/auth/v2ex-main')
+  assert.equal(paths.chromeUserDataDir, '/Users/tester/.cdp-cli/cdp-cli-template/auth/v2ex-main/chrome-profile')
   assert.equal(paths.chromeProfileDirectory, 'Default')
-  assert.equal(paths.stateFile, '/Users/tester/.cdp-cli-template/auth/v2ex-main/auth-state.json')
+  assert.equal(paths.stateFile, '/Users/tester/.cdp-cli/cdp-cli-template/auth/v2ex-main/auth-state.json')
 })
 
 test('resolveManagedBrowserSessionPaths isolates browser sessions by slug', () => {
@@ -66,11 +66,11 @@ test('resolveManagedBrowserSessionPaths isolates browser sessions by slug', () =
   } as NodeJS.ProcessEnv
 
   const paths = resolveManagedBrowserSessionPaths('qa-main', env, 'cdp-cli-template')
-  assert.equal(paths.sessionRootDir, '/Users/tester/.cdp-cli-template/browser-sessions')
-  assert.equal(paths.sessionDir, '/Users/tester/.cdp-cli-template/browser-sessions/qa-main')
-  assert.equal(paths.chromeUserDataDir, '/Users/tester/.cdp-cli-template/browser-sessions/qa-main/chrome-profile')
+  assert.equal(paths.sessionRootDir, '/Users/tester/.cdp-cli/cdp-cli-template/browser-sessions')
+  assert.equal(paths.sessionDir, '/Users/tester/.cdp-cli/cdp-cli-template/browser-sessions/qa-main')
+  assert.equal(paths.chromeUserDataDir, '/Users/tester/.cdp-cli/cdp-cli-template/browser-sessions/qa-main/chrome-profile')
   assert.equal(paths.chromeProfileDirectory, 'Default')
-  assert.equal(paths.stateFile, '/Users/tester/.cdp-cli-template/browser-sessions/qa-main/browser-state.json')
+  assert.equal(paths.stateFile, '/Users/tester/.cdp-cli/cdp-cli-template/browser-sessions/qa-main/browser-state.json')
 })
 
 test('resolveManagedBrowserSessionPaths sanitizes unsafe path characters', () => {
@@ -79,12 +79,12 @@ test('resolveManagedBrowserSessionPaths sanitizes unsafe path characters', () =>
   } as NodeJS.ProcessEnv
 
   const paths = resolveManagedBrowserSessionPaths('../qa main', env, 'cdp-cli-template')
-  assert.equal(paths.sessionDir, '/Users/tester/.cdp-cli-template/browser-sessions/qa-main')
+  assert.equal(paths.sessionDir, '/Users/tester/.cdp-cli/cdp-cli-template/browser-sessions/qa-main')
 })
 
 test('isPathInside works for POSIX and Windows-style paths', () => {
-  assert.equal(isPathInside('/Users/tester/.cdp-cli-template/auth', '/Users/tester/.cdp-cli-template/auth/v2ex-main'), true)
-  assert.equal(isPathInside('/Users/tester/.cdp-cli-template/auth', '/Users/tester/.cdp-cli-template/browser-profile'), false)
+  assert.equal(isPathInside('/Users/tester/.cdp-cli/cdp-cli-template/auth', '/Users/tester/.cdp-cli/cdp-cli-template/auth/v2ex-main'), true)
+  assert.equal(isPathInside('/Users/tester/.cdp-cli/cdp-cli-template/auth', '/Users/tester/.cdp-cli/cdp-cli-template/browser-profile'), false)
   assert.equal(isPathInside('C:\\Users\\tester\\.cdp-cli-template\\auth', 'C:\\Users\\tester\\.cdp-cli-template\\auth\\v2ex-main'), true)
   assert.equal(isPathInside('C:\\Users\\tester\\.cdp-cli-template\\auth', 'C:\\Users\\tester\\.cdp-cli-template\\browser-profile'), false)
 })

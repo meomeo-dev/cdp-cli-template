@@ -1,4 +1,4 @@
-import { access, cp, mkdir, readdir, rm, stat, writeFile } from 'node:fs/promises'
+import { access, cp, rm, stat, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import { withBrowserPage, type BrowserRuntimeOptions } from '../../infrastructure/browser/browserRuntime.js'
 import type { SiteRegistry } from '../../infrastructure/site/siteRegistry.js'
@@ -9,6 +9,7 @@ import {
   isPathInside,
   resolveManagedAuthProfilePaths,
 } from '../../shared/runtime/appPaths.js'
+import { ensureOwnerOnlyDirectories, ensureOwnerOnlyDirectory, hardenDirectoryTree } from '../../shared/runtime/profileSecurity.js'
 import { resolveBrowserOptionsForSite } from './browserOptions.js'
 
 export type AuthLoginInput = {
@@ -78,7 +79,7 @@ export async function loginAuthProfile(
   if (input.force === true) {
     await rm(target.paths.authDir, { recursive: true, force: true })
   }
-  await mkdir(target.userDataDir, { recursive: true })
+  await ensureOwnerOnlyDirectories([target.paths.appHomeDir, target.paths.authDir, target.userDataDir])
 
   const loginUrl = input.url ?? resolved.site.auth.loginUrl ?? resolved.site.baseUrl
   const browserOptions = resolveBrowserOptionsForSite(
@@ -250,22 +251,17 @@ function resolveSiteForAuthOperation(
 }
 
 async function writeAuthState(filePath: string, state: Record<string, unknown>): Promise<void> {
-  await mkdir(dirname(filePath), { recursive: true })
+  await ensureOwnerOnlyDirectory(dirname(filePath))
   await writeFile(filePath, `${JSON.stringify(state, null, 2)}\n`, 'utf8')
 }
 
 async function copyChromeUserDataDir(sourceUserDataDir: string, targetUserDataDir: string, profileDirectory: string): Promise<void> {
   await rm(targetUserDataDir, { recursive: true, force: true })
-  await mkdir(targetUserDataDir, { recursive: true })
+  await ensureOwnerOnlyDirectory(targetUserDataDir)
 
-  const entries = await readdir(sourceUserDataDir, { withFileTypes: true })
-  for (const entry of entries) {
-    if (entry.isDirectory() && isChromeProfileDirectoryName(entry.name) && entry.name !== profileDirectory) {
-      continue
-    }
-
-    await copyIfExists(join(sourceUserDataDir, entry.name), join(targetUserDataDir, entry.name))
-  }
+  await copyIfExists(join(sourceUserDataDir, 'Local State'), join(targetUserDataDir, 'Local State'))
+  await copyIfExists(join(sourceUserDataDir, profileDirectory), join(targetUserDataDir, profileDirectory))
+  await hardenDirectoryTree(targetUserDataDir)
 }
 
 async function pathExists(path: string): Promise<boolean> {
@@ -331,8 +327,4 @@ async function copyIfExists(source: string, target: string): Promise<void> {
     preserveTimestamps: true,
     errorOnExist: false,
   })
-}
-
-function isChromeProfileDirectoryName(name: string): boolean {
-  return name === 'Default' || /^Profile \d+$/.test(name) || name === 'Guest Profile' || name === 'System Profile'
 }

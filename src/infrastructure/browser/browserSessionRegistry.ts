@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { readdir, readFile, rm, writeFile, mkdir } from 'node:fs/promises'
+import { readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:net'
 import { dirname, join } from 'node:path'
 import { promisify } from 'node:util'
@@ -11,6 +11,7 @@ import {
   resolveAppHomeDir,
   resolveManagedBrowserSessionPaths,
 } from '../../shared/runtime/appPaths.js'
+import { ensureOwnerOnlyDirectories } from '../../shared/runtime/profileSecurity.js'
 
 export const MANAGED_BROWSER_SESSION_STATE_VERSION = 1
 const execFileAsync = promisify(execFile)
@@ -67,8 +68,9 @@ export async function readManagedBrowserSessionState(
 
 export async function writeManagedBrowserSessionState(state: ManagedBrowserSessionState): Promise<void> {
   assertValidBrowserSessionId(state.sessionId)
-  const stateFile = resolveManagedBrowserSessionPaths(state.sessionId).stateFile
-  await mkdir(dirname(stateFile), { recursive: true })
+  const paths = resolveManagedBrowserSessionPaths(state.sessionId)
+  const stateFile = paths.stateFile
+  await ensureOwnerOnlyDirectories([paths.appHomeDir, paths.sessionRootDir, dirname(stateFile)])
   await writeFile(stateFile, `${JSON.stringify(state, null, 2)}\n`, 'utf8')
 }
 

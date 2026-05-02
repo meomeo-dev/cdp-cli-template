@@ -6,6 +6,7 @@ import test from 'node:test'
 import { cloneAuthProfile } from '../src/application/usecases/authProfiles.js'
 import { createSiteRegistry } from '../src/infrastructure/site/siteRegistry.js'
 import { resolveManagedAuthProfilePaths } from '../src/shared/runtime/appPaths.js'
+import { OWNER_ONLY_DIRECTORY_MODE } from '../src/shared/runtime/profileSecurity.js'
 
 test('cloneAuthProfile copies the selected Chrome profile and shared root files only', async () => {
   const sandboxRoot = await mkdtemp(join(tmpdir(), 'cdp-cli-template-auth-profiles-'))
@@ -55,12 +56,17 @@ test('cloneAuthProfile copies the selected Chrome profile and shared root files 
     const managedPaths = resolveManagedAuthProfilePaths('v2ex-main-auth')
     assert.equal(result.targetUserDataDir, managedPaths.chromeUserDataDir)
     assert.equal(result.copiedChromeProfileDirectory, 'Profile 2')
+    if (process.platform !== 'win32') {
+      const info = await stat(result.targetUserDataDir)
+      assert.equal(info.mode & 0o777, OWNER_ONLY_DIRECTORY_MODE)
+    }
 
     const entries = await readdir(result.targetUserDataDir)
-    assert.deepEqual(entries.sort(), ['Local State', 'Profile 2', 'ShaderCache'].sort())
+    assert.deepEqual(entries.sort(), ['Local State', 'Profile 2'].sort())
     assert.equal(await readFile(join(result.targetUserDataDir, 'Profile 2', 'Cookies'), 'utf8'), 'profile-two-cookie')
     await assert.rejects(stat(join(result.targetUserDataDir, 'Default')), /ENOENT/)
     await assert.rejects(stat(join(result.targetUserDataDir, 'Profile 9')), /ENOENT/)
+    await assert.rejects(stat(join(result.targetUserDataDir, 'ShaderCache')), /ENOENT/)
 
     const state = JSON.parse(await readFile(managedPaths.stateFile, 'utf8')) as {
       chromeProfileDirectory: string

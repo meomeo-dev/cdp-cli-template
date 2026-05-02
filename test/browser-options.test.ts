@@ -180,15 +180,17 @@ test('resolveBrowserOptionsForSite prefers remembered managed auth state over st
 
   try {
     process.env.HOME = root
-    const stateDir = join(root, '.cdp-cli-template', 'auth', 'reviewer')
+    const stateDir = join(root, '.cdp-cli', 'cdp-cli-template', 'auth', 'reviewer')
+    const chromeProfileDir = join(root, 'managed-reviewer-profile', 'Profile 7')
     mkdirSync(stateDir, { recursive: true })
+    mkdirSync(chromeProfileDir, { recursive: true })
     writeFileSync(
       join(stateDir, 'auth-state.json'),
       `${JSON.stringify({
         version: 1,
         status: 'ready',
         authProfileId: 'reviewer',
-        chromeUserDataDir: '/tmp/managed-reviewer-profile',
+        chromeUserDataDir: join(root, 'managed-reviewer-profile'),
         chromeProfileDirectory: 'Profile 7',
       })}\n`,
       'utf8',
@@ -226,7 +228,7 @@ test('resolveBrowserOptionsForSite prefers remembered managed auth state over st
       'private',
     )
 
-    assert.equal(options.userDataDir, '/tmp/managed-reviewer-profile')
+    assert.equal(options.userDataDir, join(root, 'managed-reviewer-profile'))
     assert.equal(options.chromeProfileDirectory, 'Profile 7')
   } finally {
     if (previousHome === undefined) {
@@ -234,6 +236,127 @@ test('resolveBrowserOptionsForSite prefers remembered managed auth state over st
     } else {
       process.env.HOME = previousHome
     }
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('resolveBrowserOptionsForSite fails closed when required auth state is missing', () => {
+  const root = mkdtempSync(join(tmpdir(), 'cdp-cli-template-auth-ready-'))
+  const previousHome = process.env.HOME
+
+  try {
+    process.env.HOME = root
+    const registry = createSiteRegistry({
+      defaultSiteId: 'private',
+      authProfiles: [
+        {
+          id: 'reviewer',
+          label: 'Reviewer',
+        },
+      ],
+      sites: [
+        {
+          id: 'private',
+          name: 'Private',
+          baseUrl: 'https://example.com/private',
+          selectors: { ready: 'body' },
+          auth: { mode: 'required', profileId: 'reviewer' },
+          roles: ['primary'],
+        },
+      ],
+      workflows: [],
+    })
+
+    assert.throws(
+      () => resolveBrowserOptionsForSite(registry, { headless: true, timeoutMs: 1000 }, 'private', { required: true }),
+      /auth profile reviewer is not ready/,
+    )
+  } finally {
+    if (previousHome === undefined) {
+      delete process.env.HOME
+    } else {
+      process.env.HOME = previousHome
+    }
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('resolveBrowserOptionsForSite allows explicit browser state for required auth commands', () => {
+  const registry = createSiteRegistry({
+    defaultSiteId: 'private',
+    authProfiles: [
+      {
+        id: 'reviewer',
+        label: 'Reviewer',
+      },
+    ],
+    sites: [
+      {
+        id: 'private',
+        name: 'Private',
+        baseUrl: 'https://example.com/private',
+        selectors: { ready: 'body' },
+        auth: { mode: 'required', profileId: 'reviewer' },
+        roles: ['primary'],
+      },
+    ],
+    workflows: [],
+  })
+
+  const options = resolveBrowserOptionsForSite(
+    registry,
+    {
+      sessionId: 'qa-main',
+      headless: true,
+      timeoutMs: 1000,
+    },
+    'private',
+    { required: true },
+  )
+
+  assert.equal(options.sessionId, 'qa-main')
+})
+
+test('resolveBrowserOptionsForSite accepts configured auth profile directories for required auth', () => {
+  const root = mkdtempSync(join(tmpdir(), 'cdp-cli-template-configured-auth-'))
+
+  try {
+    const configuredUserDataDir = join(root, 'configured-profile')
+    mkdirSync(join(configuredUserDataDir, 'Default'), { recursive: true })
+    const registry = createSiteRegistry({
+      defaultSiteId: 'private',
+      authProfiles: [
+        {
+          id: 'reviewer',
+          label: 'Reviewer',
+          userDataDir: configuredUserDataDir,
+        },
+      ],
+      sites: [
+        {
+          id: 'private',
+          name: 'Private',
+          baseUrl: 'https://example.com/private',
+          selectors: { ready: 'body' },
+          auth: { mode: 'required', profileId: 'reviewer' },
+          roles: ['primary'],
+        },
+      ],
+      workflows: [],
+    })
+
+    const options = resolveBrowserOptionsForSite(
+      registry,
+      {
+        headless: true,
+        timeoutMs: 1000,
+      },
+      'private',
+      { required: true },
+    )
+
+    assert.equal(options.userDataDir, configuredUserDataDir)
+  } finally {
     rmSync(root, { recursive: true, force: true })
   }
 })
