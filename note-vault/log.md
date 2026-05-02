@@ -25,3 +25,9 @@ tags:
 - 新建了: [[command-mode-tui-preserves-cli-contracts]]
 - 更新了: [[tui-ux-patterns-are-interaction-contracts]], [[tui-design-system-moc]], [[index]]
 - 结论: CLI command TUI 应默认采用 `command-interaction-profile`，保留 args/flags/stdin/stdout/stderr/exit code 和非交互路径。
+
+## [2026-05-02] evidence | TUI 关键证据离线卡
+- 新建 raw: [[raw/ecma-1991-control-functions]], [[raw/xterm-2025-control-sequences]], [[raw/ncurses-2026-terminfo]], [[raw/unicode-2025-east-asian-width]], [[raw/ratatui-2026-terminal-abstraction]]
+- 新建 raw: [[raw/clig-2025-command-line-guidelines]], [[raw/fuchsia-2025-cli-guidance]], [[raw/salesforce-2026-cli-interactivity]], [[raw/heroku-2025-cli-style-guide]], [[raw/patternfly-2025-cli-handbook]]
+- 新建 raw: [[raw/w3c-2026-aria-keyboard]], [[raw/w3c-2025-design-tokens]], [[raw/w3c-2023-wcag-color-motion]], [[raw/rich-2025-console-api]]
+- 更新了: [[tui-design-system-moc]], [[terminal-substrate-determines-tui-primitives]], [[tui-ux-patterns-are-interaction-contracts]], [[command-mode-tui-preserves-cli-contracts]], [[tui-aesthetics-are-tokenized-constraints]]

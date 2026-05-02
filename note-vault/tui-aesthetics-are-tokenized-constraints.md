@@ -13,6 +13,10 @@ maturity: evergreen
 links:
   - "[[tui-design-systems-are-layered-constraints]]"
   - "[[tui-ux-patterns-are-interaction-contracts]]"
+  - "[[raw/w3c-2025-design-tokens]]"
+  - "[[raw/w3c-2023-wcag-color-motion]]"
+  - "[[raw/rich-2025-console-api]]"
+  - "[[raw/xterm-2025-control-sequences]]"
 graph-label: Concept
 graph-relations:
   - target: "[[tui-design-systems-are-layered-constraints]]"
@@ -21,6 +25,18 @@ graph-relations:
   - target: "[[tui-ux-patterns-are-interaction-contracts]]"
     relation: TO
     why: "美学 token 必须服务交互契约"
+  - target: "[[raw/w3c-2025-design-tokens]]"
+    relation: OF
+    why: "提供设计 token 格式和分组依据"
+  - target: "[[raw/w3c-2023-wcag-color-motion]]"
+    relation: OF
+    why: "提供颜色、焦点、动态内容的可访问性约束"
+  - target: "[[raw/rich-2025-console-api]]"
+    relation: OF
+    why: "提供终端样式 fallback 和 plain output 证据"
+  - target: "[[raw/xterm-2025-control-sequences]]"
+    relation: OF
+    why: "提供 SGR 颜色与终端样式能力依据"
 ---
 
 # TUI 美学是可降级的语义 token
@@ -34,3 +50,6 @@ TUI 美学应表达为可降级的语义 token，而不是终端装饰效果的�
 ## 连接
 - [[tui-design-systems-are-layered-constraints]] — 美学层必须放在基本原理与 UX/UI 之后。
 - [[tui-ux-patterns-are-interaction-contracts]] — 美学表达不能削弱交互契约。
+- [[raw/w3c-2025-design-tokens]] — token 化格式证据。
+- [[raw/w3c-2023-wcag-color-motion]] — 色彩/焦点/动态约束证据。
+- [[raw/rich-2025-console-api]] — 终端样式 fallback 证据。
