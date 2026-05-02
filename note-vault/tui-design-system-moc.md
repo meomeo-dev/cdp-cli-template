@@ -28,6 +28,7 @@ graph-label: Context
 - 阶段审计: 基本原理、UX/UI、设计美学均通过。
 
 ## 离线证据
+- [[raw/deep-research-2026-tui-web-archive-index]] — deep-research `web_archive` 原文归档索引。
 - [[raw/ecma-1991-control-functions]] — ECMA-48 控制函数标准。
 - [[raw/xterm-2025-control-sequences]] — xterm/DEC 扩展、颜色、鼠标、备用屏幕。
 - [[raw/ncurses-2026-terminfo]] — 终端能力数据库。

@@ -31,3 +31,9 @@ tags:
 - 新建 raw: [[raw/clig-2025-command-line-guidelines]], [[raw/fuchsia-2025-cli-guidance]], [[raw/salesforce-2026-cli-interactivity]], [[raw/heroku-2025-cli-style-guide]], [[raw/patternfly-2025-cli-handbook]]
 - 新建 raw: [[raw/w3c-2026-aria-keyboard]], [[raw/w3c-2025-design-tokens]], [[raw/w3c-2023-wcag-color-motion]], [[raw/rich-2025-console-api]]
 - 更新了: [[tui-design-system-moc]], [[terminal-substrate-determines-tui-primitives]], [[tui-ux-patterns-are-interaction-contracts]], [[command-mode-tui-preserves-cli-contracts]], [[tui-aesthetics-are-tokenized-constraints]]
+
+## [2026-05-02] evidence | deep-research 原文归档
+- 使用 `deep-research evidence_archive` 为 14 个关键来源生成 `web_archive` 原文工件，并链接进 DAG 支撑节点。
+- 新建 raw: [[raw/deep-research-2026-tui-web-archive-index]]
+- 更新 raw: 为每张证据卡补充 `archive-evidence-id`、`archive-artifact-id`、DAG 支撑边和全文查看命令。
+- 备注: Salesforce 页面 `node` backend 403，已改用 `crawl4ai` 成功归档；降级记录只作为 `annotates` 审计边，不作为支撑边。
