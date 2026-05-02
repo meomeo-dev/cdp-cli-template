@@ -18,6 +18,8 @@ links:
   - "[[raw/w3c-2026-aria-keyboard]]"
   - "[[raw/w3c-2023-wcag-color-motion]]"
   - "[[raw/ratatui-2026-terminal-abstraction]]"
+  - "[[command-mode-tui-components-are-projections]]"
+  - "[[command-tui-layout-is-block-contract]]"
 graph-label: Concept
 graph-relations:
   - target: "[[terminal-substrate-determines-tui-primitives]]"

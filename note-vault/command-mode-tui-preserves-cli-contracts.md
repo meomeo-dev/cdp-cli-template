@@ -19,6 +19,8 @@ links:
   - "[[raw/heroku-2025-cli-style-guide]]"
   - "[[raw/patternfly-2025-cli-handbook]]"
   - "[[raw/rich-2025-console-api]]"
+  - "[[command-mode-tui-components-are-projections]]"
+  - "[[command-tui-layout-is-block-contract]]"
 graph-label: Concept
 graph-relations:
   - target: "[[tui-ux-patterns-are-interaction-contracts]]"

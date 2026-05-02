@@ -16,6 +16,9 @@ links:
   - "[[raw/w3c-2025-design-tokens]]"
   - "[[raw/w3c-2023-wcag-color-motion]]"
   - "[[raw/rich-2025-console-api]]"
+  - "[[command-tui-motion-is-lifecycle-feedback]]"
+  - "[[raw/carbon-2026-motion-overview]]"
+  - "[[raw/w3c-2023-animation-from-interactions]]"
   - "[[raw/xterm-2025-control-sequences]]"
 graph-label: Concept
 graph-relations:
