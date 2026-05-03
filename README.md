@@ -33,7 +33,7 @@ The managed TypeScript launch path in this template uses `puppeteer-extra` with 
 cd ~/projects/cdp-cli-template
 npm install
 npm run release:preflight
-node dist/src/cli.js describe
+node dist/cli.js describe
 ```
 
 Inspect the default example site. Command-style browser interactions default to headless; pass `--headed` only when a human needs to see or complete the browser flow:

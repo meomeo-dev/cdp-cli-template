@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.1 - 2026-05-03
+
+- Add explicit dependency freshness and npm security audit scripts.
+- Replace multi-file TypeScript emit packaging with a minified, obfuscated single-file CLI build.
+- Restrict npm tarball contents to the CLI bundle plus required release documentation, including `SKILL.md`.
+- Strengthen package verification to reject source, test, spec, and script files in release tarballs.
+
 ## 0.4.0 - 2026-05-02
 
 - Add a CDP CLI template plan for UX mode, output format, lifecycle, login-state, and profile-hardening boundaries.

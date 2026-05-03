@@ -1,28 +1,31 @@
 {
   "name": "cdp-cli-template",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Template for building approved-site browser QA CLI tools.",
   "type": "module",
   "private": true,
   "bin": {
-    "site-cdp": "dist/src/cli.js"
+    "site-cdp": "dist/cli.js"
   },
   "files": [
-    "dist",
+    "dist/cli.js",
     "README.md",
     "CHANGELOG.md",
     "SKILL.md",
     "package.json"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "node scripts/build.mjs",
     "clean": "rm -rf dist coverage test-results playwright-report",
+    "deps:outdated": "npm outdated",
     "dev": "tsx src/cli.ts",
     "lint": "eslint .",
+    "package": "npm run build && npm pack",
     "package:verify": "node scripts/package-verify.mjs",
-    "release:preflight": "npm run quality:check && npm run build && npm run package:verify",
+    "release:preflight": "npm run quality:check && npm run security:audit && npm run build && npm run package:verify",
+    "security:audit": "npm audit --audit-level=moderate",
     "spec:validate": "node scripts/spec-validate.mjs",
-    "start": "node dist/src/cli.js",
+    "start": "node dist/cli.js",
     "test": "node --import tsx --test test/*.test.ts",
     "test:contract": "node --import tsx --test test/contract/*.test.ts",
     "test:e2e": "playwright test",
@@ -42,7 +45,9 @@
     "@playwright/test": "^1.56.1",
     "@types/jsdom": "^28.0.1",
     "@types/node": "^24.10.0",
+    "esbuild": "^0.28.0",
     "eslint": "^9.39.1",
+    "javascript-obfuscator": "^5.4.2",
     "jsdom": "^29.1.1",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3",

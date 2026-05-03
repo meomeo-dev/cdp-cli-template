@@ -11,14 +11,14 @@ const packageVersion = readJson('package.json').version ?? '0.1.0'
 updateJson('package.json', data => {
   data.name = packageName
   data.description = `Browser QA CLI for ${siteName}.`
-  data.bin = { [binName]: 'dist/src/cli.js' }
+  data.bin = { [binName]: 'dist/cli.js' }
   return data
 })
 updateJson('package-lock.json', data => {
   data.name = packageName
   if (data.packages?.['']) {
     data.packages[''].name = packageName
-    data.packages[''].bin = { [binName]: 'dist/src/cli.js' }
+    data.packages[''].bin = { [binName]: 'dist/cli.js' }
   }
   return data
 })
